@@ -1,0 +1,75 @@
+:root {
+  /* ── surfaces ───────────────────────────── */
+  --bg: oklch(1 0 0);
+  --surface: oklch(0.976 0.006 120);
+  --surface-2: oklch(0.955 0.008 120);
+  --line: oklch(0.905 0.008 120);
+  --line-strong: oklch(0.85 0.01 120);
+
+  /* ── text ───────────────────────────────── */
+  --ink: oklch(0.24 0.02 130);
+  --muted: oklch(0.5 0.018 130);
+
+  /* ── brand: olive ───────────────────────── */
+  --primary: oklch(0.46 0.105 120);
+  --primary-press: oklch(0.4 0.1 120);
+  --primary-tint: oklch(0.955 0.022 120);
+  --on-primary: oklch(0.99 0.004 120);
+
+  /* ── accent: terracotta (money/offers) ──── */
+  --accent: oklch(0.605 0.15 52);
+  --accent-press: oklch(0.55 0.145 52);
+  --accent-tint: oklch(0.955 0.028 52);
+  --on-accent: oklch(0.99 0.006 52);
+
+  /* ── status (always icon + label too) ───── */
+  --ok: oklch(0.52 0.12 150);
+  --ok-tint: oklch(0.955 0.03 150);
+  --warn: oklch(0.6 0.12 75);
+  --warn-tint: oklch(0.96 0.04 85);
+  --danger: oklch(0.53 0.18 28);
+  --danger-tint: oklch(0.96 0.03 28);
+
+  /* ── type ───────────────────────────────── */
+  --font: "Hanken Grotesk", "Noto Sans", system-ui, -apple-system, sans-serif;
+
+  /* ── radius ─────────────────────────────── */
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-pill: 999px;
+
+  /* ── spacing (4px base) ─────────────────── */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 24px;
+  --s8: 32px;
+  --s10: 40px;
+  --s12: 48px;
+
+  /* ── shadow ─────────────────────────────── */
+  --shadow-sm: 0 1px 2px oklch(0.4 0.03 130 / 0.06), 0 1px 3px oklch(0.4 0.03 130 / 0.08);
+  --shadow-md: 0 4px 12px oklch(0.35 0.03 130 / 0.1), 0 2px 4px oklch(0.35 0.03 130 / 0.06);
+  --shadow-lg: 0 12px 32px oklch(0.3 0.03 130 / 0.16), 0 4px 10px oklch(0.3 0.03 130 / 0.08);
+
+  /* ── z-index scale ──────────────────────── */
+  --z-nav: 100;
+  --z-fab: 200;
+  --z-backdrop: 900;
+  --z-sheet: 1000;
+  --z-toast: 1100;
+
+  /* ── motion ─────────────────────────────── */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1); /* ease-out-quint */
+  --dur-fast: 140ms;
+  --dur: 240ms;
+  --dur-slow: 420ms;
+
+  /* ── shell ──────────────────────────────── */
+  --shell-max: 460px;
+  --bar-h: 60px;
+  --tab-h: 64px;
+}

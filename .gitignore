@@ -1,0 +1,23 @@
+# Dependency directories
+node_modules/
+
+# Build output
+dist/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+
+# OS and editor files
+.DS_Store
+.vscode/
+*.log
+
+# Local metadata
+.claude/
+.codex/
+.cursor/
+.impeccable/
