@@ -70,6 +70,18 @@ the Aadhaar / DPDP compliance approach.
   role changes) in `audit_logs`, admin-readable only.
 - Dependency/vulnerability scanning belongs in CI (`npm audit`, Dart `pub`).
 
+## Hardening applied
+- **anon role is locked out of all data** (migration `0008_lock_anon.sql`): an
+  extracted publishable key reads nothing without authenticating; RLS gates
+  authenticated users. Auth/sign-up is unaffected.
+
+## Go-live: one script + dashboard toggles
+- Run `supabase/production_hardening.sql` to remove the two demo backdoors
+  (email auto-confirm trigger + `dev_autoverify_kyc`).
+- Dashboard (cannot be scripted): re-enable **Confirm email**; enable **Attack
+  Protection** (CAPTCHA + leaked-password); raise min password length; **rotate
+  the DB password**. Deploy `server/` over TLS with the secret keys.
+
 ## Demo vs production
 - `dev_autoverify_kyc()` (RPC) auto-verifies KYC for the **demo only** so the
   marketplace loop is walkable without provider keys. In production this is
