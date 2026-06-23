@@ -17,6 +17,8 @@ export interface Listing {
   status: ListingStatus;
   offers: number;
   views: number;
+  farmerName: string;
+  farmerVerified: boolean;
 }
 
 export interface MarketPrice {
@@ -38,6 +40,34 @@ export interface Activity {
   unit?: string;
   when: string;
   unread: boolean;
+  listingId?: string; // link to relevant listing
+}
+
+export interface BuyRequirement {
+  id: string;
+  crop: string;
+  emoji: string;
+  qty: number;
+  unit: string;
+  grade: Grade;
+  maxPrice: number;
+  location: string;
+  dealerName: string;
+}
+
+export interface Message {
+  id: string;
+  sender: "farmer" | "dealer";
+  text: string;
+  timestamp: string;
+}
+
+export interface ChatThread {
+  id: string;
+  partnerName: string;
+  partnerRole: string;
+  crop: string;
+  messages: Message[];
 }
 
 export const farmer = {
@@ -46,6 +76,13 @@ export const farmer = {
   verified: true,
   wallet: 48250,
   pendingPayout: 12400,
+};
+
+export const dealer = {
+  name: "Anand",
+  company: "Anand Traders",
+  verified: true,
+  wallet: 150000,
 };
 
 export const marketPrices: MarketPrice[] = [
@@ -73,6 +110,8 @@ export const listings: Listing[] = [
     status: "offers",
     offers: 3,
     views: 41,
+    farmerName: "Lakshmi",
+    farmerVerified: true,
   },
   {
     id: "l2",
@@ -89,6 +128,8 @@ export const listings: Listing[] = [
     status: "live",
     offers: 0,
     views: 12,
+    farmerName: "Lakshmi",
+    farmerVerified: true,
   },
   {
     id: "l3",
@@ -105,7 +146,45 @@ export const listings: Listing[] = [
     status: "sold",
     offers: 0,
     views: 88,
+    farmerName: "Lakshmi",
+    farmerVerified: true,
   },
+  {
+    id: "l4",
+    crop: "Chilli",
+    emoji: "🌶️",
+    qty: 800,
+    unit: "kg",
+    grade: "A",
+    organic: false,
+    price: 9900,
+    marketPrice: 9800,
+    harvestIn: 0,
+    location: "Kolar APMC",
+    status: "live",
+    offers: 1,
+    views: 33,
+    farmerName: "Ramesh Kumar",
+    farmerVerified: true,
+  },
+  {
+    id: "l5",
+    crop: "Carrot",
+    emoji: "🥕",
+    qty: 1.5,
+    unit: "ton",
+    grade: "B",
+    organic: true,
+    price: 1650,
+    marketPrice: 1700,
+    harvestIn: 2,
+    location: "Chintamani",
+    status: "live",
+    offers: 0,
+    views: 24,
+    farmerName: "Manjunath",
+    farmerVerified: false,
+  }
 ];
 
 export const activity: Activity[] = [
@@ -120,6 +199,7 @@ export const activity: Activity[] = [
     unit: "ton",
     when: "12 min ago",
     unread: true,
+    listingId: "l1",
   },
   {
     id: "a2",
@@ -132,6 +212,7 @@ export const activity: Activity[] = [
     unit: "ton",
     when: "1 hr ago",
     unread: true,
+    listingId: "l1",
   },
   {
     id: "a3",
@@ -142,6 +223,7 @@ export const activity: Activity[] = [
     amount: 12400,
     when: "Yesterday",
     unread: false,
+    listingId: "l3",
   },
   {
     id: "a4",
@@ -151,7 +233,68 @@ export const activity: Activity[] = [
     crop: "Brinjal",
     when: "Yesterday",
     unread: false,
+    listingId: "l2",
   },
+];
+
+export const defaultRequirements: BuyRequirement[] = [
+  {
+    id: "r1",
+    crop: "Tomato",
+    emoji: "🍅",
+    qty: 5,
+    unit: "ton",
+    grade: "A",
+    maxPrice: 2550,
+    location: "Kolar APMC",
+    dealerName: "Surya Exports",
+  },
+  {
+    id: "r2",
+    crop: "Onion",
+    emoji: "🧅",
+    qty: 10,
+    unit: "ton",
+    grade: "B",
+    maxPrice: 1900,
+    location: "Bangalore",
+    dealerName: "Anand Traders",
+  },
+  {
+    id: "r3",
+    crop: "Potato",
+    emoji: "🥔",
+    qty: 2,
+    unit: "ton",
+    grade: "A",
+    maxPrice: 1400,
+    location: "Kolar APMC",
+    dealerName: "FreshCo Foods",
+  }
+];
+
+export const defaultChats: ChatThread[] = [
+  {
+    id: "c1",
+    partnerName: "Surya Exports",
+    partnerRole: "Exporter",
+    crop: "Tomato",
+    messages: [
+      { id: "m1", sender: "dealer", text: "Hello Lakshmi, is the Tomato grade A lot ready for pickup?", timestamp: "10:30 AM" },
+      { id: "m2", sender: "farmer", text: "Yes, it is ready. It has been harvested today.", timestamp: "10:35 AM" },
+      { id: "m3", sender: "dealer", text: "Excellent. Can we close it at ₹2,550?", timestamp: "10:36 AM" }
+    ]
+  },
+  {
+    id: "c2",
+    partnerName: "FreshCo Foods",
+    partnerRole: "Company",
+    crop: "Brinjal",
+    messages: [
+      { id: "m4", sender: "dealer", text: "Hi Lakshmi, what is the moisture content of the Brinjal lot?", timestamp: "Yesterday" },
+      { id: "m5", sender: "farmer", text: "Very low, grade A premium quality and organic.", timestamp: "Yesterday" }
+    ]
+  }
 ];
 
 export const cropCatalog = [

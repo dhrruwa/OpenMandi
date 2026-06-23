@@ -16,5 +16,7 @@ abstract final class AppConfig {
 
   /// True when real Supabase credentials are provided → live mode.
   static bool get isLive =>
-      supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+      supabaseUrl.isNotEmpty &&
+      supabaseAnonKey.isNotEmpty &&
+      supabaseAnonKey.startsWith('eyJ');
 }

@@ -39,15 +39,17 @@ class ListingCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(Radii.md),
           border: Border.all(color: AppColors.line),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ProduceImage(l.crop, imageUrl: l.photoUrl, size: 74, organic: l.organic),
-            const SizedBox(width: Insets.s3),
-            Expanded(child: _body(vsColor)),
-            const SizedBox(width: Insets.s2),
-            _trailing(),
-          ],
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ProduceImage(l.crop, imageUrl: l.photoUrl, size: 74, organic: l.organic),
+              const SizedBox(width: Insets.s3),
+              Expanded(child: _body(vsColor)),
+              const SizedBox(width: Insets.s2),
+              _trailing(),
+            ],
+          ),
         ),
       ),
     );

@@ -25,3 +25,16 @@ join (values
   ('Chilli', 9800), ('Carrot', 1700), ('Cabbage', 980), ('Okra', 3200)
 ) as p(name, modal) on p.name = c.name
 on conflict (crop_id, market, date) do nothing;
+
+-- demo test accounts for local/demo testing only
+insert into auth.users (id, aud, role, email, email_confirmed_at, encrypted_password, raw_user_meta_data, created_at, updated_at)
+values
+  (gen_random_uuid(), 'authenticated', 'authenticated', 'demo_farmer@example.com', now(), crypt('Password123!', gen_salt('bf')), '{"role":"farmer","full_name":"Demo Farmer"}'::jsonb, now(), now()),
+  (gen_random_uuid(), 'authenticated', 'authenticated', 'demo_dealer@example.com', now(), crypt('Password123!', gen_salt('bf')), '{"role":"dealer","full_name":"Demo Dealer"}'::jsonb, now(), now())
+  on conflict (email) do nothing;
+
+insert into public.users (id, email, full_name, role, email_verified)
+select u.id, u.email, (u.raw_user_meta_data->>'full_name')::text, (u.raw_user_meta_data->>'role')::user_role, true
+from auth.users u
+where u.email in ('demo_farmer@example.com', 'demo_dealer@example.com')
+  and not exists (select 1 from public.users p where p.id = u.id);

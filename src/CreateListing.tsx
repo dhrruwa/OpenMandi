@@ -21,7 +21,24 @@ const GRADES: { g: Grade; label: string; desc: string }[] = [
 
 const STEPS = ["Crop", "Quantity", "Quality", "Photos", "Price", "Review"];
 
-export default function CreateListing({ onClose }: { onClose: () => void }) {
+export default function CreateListing({
+  onClose,
+  onPublish,
+}: {
+  onClose: () => void;
+  onPublish: (listing: {
+    crop: string;
+    emoji: string;
+    qty: number;
+    unit: string;
+    grade: Grade;
+    organic: boolean;
+    price: number;
+    marketPrice: number;
+    harvestIn: number;
+    location: string;
+  }) => void;
+}) {
   const [step, setStep] = useState(0);
   const [crop, setCrop] = useState<(typeof cropCatalog)[number] | null>(null);
   const [qty, setQty] = useState("");
@@ -71,6 +88,23 @@ export default function CreateListing({ onClose }: { onClose: () => void }) {
 
   const next = () => {
     if (last) {
+      if (crop && grade) {
+        const harvestDays = harvest
+          ? Math.max(0, Math.ceil((new Date(harvest).getTime() - new Date().getTime()) / (1000 * 3600 * 24)))
+          : 0;
+        onPublish({
+          crop: crop.crop,
+          emoji: crop.emoji,
+          qty: Number(qty) || 0,
+          unit,
+          grade,
+          organic,
+          price: Number(price) || 0,
+          marketPrice: crop.market,
+          harvestIn: harvestDays,
+          location: "Kolar",
+        });
+      }
       setDone(true);
       return;
     }
