@@ -1,0 +1,237 @@
+import 'package:flutter/material.dart';
+import 'package:openmandi_ui/openmandi_ui.dart';
+
+import '../widgets/wallet_card.dart';
+import 'my_listing_screen.dart';
+
+enum _Cat { all, live, offers, sold }
+
+extension on _Cat {
+  String get label => switch (this) {
+        _Cat.all => 'All',
+        _Cat.live => 'Live',
+        _Cat.offers => 'Offers',
+        _Cat.sold => 'Sold',
+      };
+  IconData get icon => switch (this) {
+        _Cat.all => Icons.grid_view_rounded,
+        _Cat.live => Icons.sell_outlined,
+        _Cat.offers => Icons.local_offer_outlined,
+        _Cat.sold => Icons.check_circle_outline,
+      };
+  bool test(Listing l) => switch (this) {
+        _Cat.all => true,
+        _Cat.live => l.status == ListingStatus.live,
+        _Cat.offers => l.status == ListingStatus.offers,
+        _Cat.sold => l.status == ListingStatus.sold,
+      };
+}
+
+class HomeTab extends StatefulWidget {
+  const HomeTab({super.key});
+
+  @override
+  State<HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends State<HomeTab> {
+  int _cat = 0;
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.store;
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: ListenableBuilder(
+        listenable: store,
+        builder: (context, _) {
+          final cat = _Cat.values[_cat];
+          final listings = store.myListings
+              .where(cat.test)
+              .where((l) =>
+                  _query.isEmpty ||
+                  l.crop.toLowerCase().contains(_query.toLowerCase()))
+              .toList();
+
+          return Column(
+            children: [
+              MarketHeader(
+                title: 'Hi, ${store.userName.isEmpty ? 'farmer' : store.userName}',
+                subtitle: 'Kolar, Karnataka · live mandi',
+                searchHint: 'Search your produce…',
+                onSearchChanged: (v) => setState(() => _query = v),
+                selected: _cat,
+                onCategory: (i) => setState(() => _cat = i),
+                categories: [
+                  for (final c in _Cat.values) MarketCategory(c.icon, c.label),
+                ],
+                trailing: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const NotificationsScreen())),
+                    icon: const Icon(Icons.notifications_none,
+                        color: AppColors.onPrimary),
+                    tooltip: 'Notifications',
+                  ),
+                ],
+              ),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: store.reloadAll,
+                  child: ListView(
+                    padding: EdgeInsets.only(
+                        bottom: 96 + MediaQuery.of(context).padding.bottom),
+                    children: [
+                      WalletCard(
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => const WalletScreen())),
+                      ),
+                      SectionHeader(
+                        title: "Today's mandi price",
+                        subtitle: 'Live · eNAM · Kolar APMC',
+                        actionLabel: 'All',
+                        onAction: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const PricesScreen())),
+                      ),
+                      PriceStrip(prices: store.prices),
+                      const SizedBox(height: Insets.s1),
+                      const _Divider(),
+                      SectionHeader(
+                        title: 'Your listings',
+                        actionLabel: '${store.myListings.where((l) => l.status != ListingStatus.sold).length} active',
+                        onAction: () {},
+                      ),
+                      if (listings.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: Insets.s4, vertical: Insets.s4),
+                          child: Text('Nothing here — tap “List produce” to add a crop.',
+                              style: TextStyle(color: AppColors.muted)),
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: Insets.s4),
+                          child: Column(
+                            children: [
+                              for (var i = 0; i < listings.length; i++)
+                                Padding(
+                                  padding: EdgeInsets.only(
+                                      bottom: i == listings.length - 1 ? 0 : Insets.s3),
+                                  child: Reveal(
+                                    delay: Duration(milliseconds: i * 50),
+                                    child: ListingCard(
+                                      listings[i],
+                                      onTap: () => Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => MyListingScreen(listings[i]),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      const _Divider(),
+                      const SectionHeader(title: 'Activity'),
+                      _Activity(),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _Activity extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final store = context.store;
+    final items = store.notifications.take(4).toList();
+    if (items.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: Insets.s4, vertical: Insets.s3),
+        child: Text('No activity yet.', style: TextStyle(color: AppColors.muted)),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Insets.s4),
+      child: Column(
+        children: [
+          for (var i = 0; i < items.length; i++)
+            _row(context, items[i], last: i == items.length - 1),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(BuildContext context, AppNotification n, {required bool last}) {
+    final (icon, fg, bg) = switch (n.kind) {
+      NotifKind.offer => (Icons.local_offer_outlined, AppColors.accentPress, AppColors.accentTint),
+      NotifKind.payout => (Icons.account_balance_wallet_outlined, AppColors.ok, AppColors.okTint),
+      NotifKind.price => (Icons.trending_up, AppColors.ok, AppColors.okTint),
+      _ => (Icons.receipt_long_outlined, AppColors.primaryPress, AppColors.primaryTint),
+    };
+    return Tappable(
+      onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: Insets.s3, horizontal: 2),
+        decoration: BoxDecoration(
+          border: last ? null : const Border(bottom: BorderSide(color: AppColors.line)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+              child: Icon(icon, size: 20, color: fg),
+            ),
+            const SizedBox(width: Insets.s3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(n.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  Text(n.body,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, color: AppColors.muted)),
+                ],
+              ),
+            ),
+            const SizedBox(width: Insets.s2),
+            Text(n.when, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  const _Divider();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 8,
+      margin: const EdgeInsets.only(top: Insets.s5),
+      decoration: const BoxDecoration(
+        color: AppColors.surface2,
+        border: Border(
+          top: BorderSide(color: AppColors.line),
+          bottom: BorderSide(color: AppColors.line),
+        ),
+      ),
+    );
+  }
+}
