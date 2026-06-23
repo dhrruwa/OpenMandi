@@ -14,6 +14,9 @@ abstract final class AppConfig {
   /// Optional Phase-2 Express service base URL (Razorpay/Aadhaar/price cron).
   static const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
 
+  /// Google Maps Platform API key.
+  static const googleMapsApiKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY');
+
   /// True when real Supabase credentials are provided → live mode.
   static bool get isLive =>
       supabaseUrl.isNotEmpty &&

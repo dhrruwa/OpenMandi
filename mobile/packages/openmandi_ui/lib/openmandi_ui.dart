@@ -29,6 +29,8 @@ export 'src/widgets/order_stepper.dart';
 export 'src/widgets/rating_stars.dart';
 export 'src/widgets/empty_state.dart';
 export 'src/widgets/message_bubble.dart';
+export 'src/widgets/location_picker.dart';
+export 'src/widgets/voice_widgets.dart';
 
 export 'src/screens/orders_screen.dart';
 export 'src/screens/order_detail_screen.dart';
@@ -38,3 +40,4 @@ export 'src/screens/wallet_screen.dart';
 export 'src/screens/notifications_screen.dart';
 export 'src/screens/profile_screen.dart';
 export 'src/screens/prices_screen.dart';
+export 'src/screens/preferred_locations_screen.dart';

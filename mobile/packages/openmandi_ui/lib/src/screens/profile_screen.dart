@@ -6,6 +6,7 @@ import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../widgets/rating_stars.dart';
 import 'wallet_screen.dart';
+import 'preferred_locations_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -139,14 +140,29 @@ class ProfileScreen extends StatelessWidget {
             if (store.isFarmer)
               _row(context, Icons.account_balance, 'Bank / UPI for payouts', () {}),
             if (!store.isFarmer)
+              _row(context, Icons.location_on_outlined, 'Preferred Locations',
+                  () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const PreferredLocationsScreen()))),
+            if (!store.isFarmer)
               _row(context, Icons.bookmark_border, 'Saved searches & alerts', () {}),
             _row(context, Icons.workspace_premium_outlined, 'KYC documents', () {}),
           ]),
           const SizedBox(height: Insets.s4),
           _group([
-            _switchRow(Icons.translate, 'Language', store.language, [
-              for (final l in ['English', 'हिन्दी', 'ಕನ್ನಡ', 'తెలుగు'])
-                l
+            _switchRow(Icons.translate, store.getTranslated('language_settings'), store.language, [
+              'English',
+              'Kannada',
+              'Hindi',
+              'Telugu',
+              'Tamil',
+              'Malayalam',
+              'Marathi',
+              'Gujarati',
+              'Bengali',
+              'Punjabi',
+              'Odia',
+              'Assamese',
+              'Urdu'
             ], (v) => store.setLanguage(v)),
             _toggleRow(Icons.accessibility_new, 'Large-icon mode',
                 'Bigger touch targets & simpler layout', store.largeIcons,
@@ -201,8 +217,23 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _switchRow(IconData icon, String label, String value,
+   Widget _switchRow(IconData icon, String label, String value,
       List<String> options, ValueChanged<String> onChanged) {
+    const nativeNames = {
+      'English': 'English',
+      'Kannada': 'ಕನ್ನಡ',
+      'Hindi': 'हिन्दी',
+      'Telugu': 'తెలుగు',
+      'Tamil': 'தமிழ்',
+      'Malayalam': 'മലയാളം',
+      'Marathi': 'मराठी',
+      'Gujarati': 'ગુજરાતી',
+      'Bengali': 'বাংলা',
+      'Punjabi': 'ਪੰਜਾਬੀ',
+      'Odia': 'ଓଡ଼િଆ',
+      'Assamese': 'অসমীয়া',
+      'Urdu': 'اردو',
+    };
     return ListTile(
       leading: Icon(icon, color: AppColors.primary, size: 22),
       title: Text(label,
@@ -212,7 +243,7 @@ class ProfileScreen extends StatelessWidget {
         underline: const SizedBox.shrink(),
         items: [
           for (final o in options)
-            DropdownMenuItem(value: o, child: Text(o)),
+            DropdownMenuItem(value: o, child: Text(nativeNames[o] ?? o)),
         ],
         onChanged: (v) => v == null ? null : onChanged(v),
       ),

@@ -6,6 +6,7 @@ import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../widgets/crop_avatar.dart';
 import '../widgets/message_bubble.dart';
+import '../widgets/voice_widgets.dart';
 
 class ChatThreadScreen extends StatefulWidget {
   const ChatThreadScreen(this.threadId, {super.key});
@@ -18,6 +19,14 @@ class ChatThreadScreen extends StatefulWidget {
 class _ChatThreadScreenState extends State<ChatThreadScreen> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _input.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
   void dispose() {
@@ -152,16 +161,33 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
             ),
           ),
           const SizedBox(width: Insets.s2),
-          GestureDetector(
-            onTap: () => _send(store, t),
-            child: Container(
-              width: 46,
-              height: 46,
-              decoration: const BoxDecoration(
-                  color: AppColors.primary, shape: BoxShape.circle),
-              child: const Icon(Icons.send, color: AppColors.onPrimary, size: 20),
-            ),
-          ),
+          _input.text.trim().isNotEmpty
+              ? GestureDetector(
+                  onTap: () => _send(store, t),
+                  child: Container(
+                    width: 46,
+                    height: 46,
+                    decoration: const BoxDecoration(
+                        color: AppColors.primary, shape: BoxShape.circle),
+                    child: const Icon(Icons.send, color: AppColors.onPrimary, size: 20),
+                  ),
+                )
+              : VoiceRecorderWidget(
+                  onSend: ({
+                    required String audioUrl,
+                    required String transcript,
+                    required String translatedText,
+                  }) {
+                    store.sendMessage(
+                      t,
+                      '',
+                      audioUrl: audioUrl,
+                      transcript: transcript,
+                      translatedText: translatedText,
+                    );
+                    _jump();
+                  },
+                ),
         ],
       ),
     );

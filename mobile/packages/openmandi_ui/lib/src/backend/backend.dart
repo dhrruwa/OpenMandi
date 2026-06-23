@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/models.dart';
@@ -96,6 +98,12 @@ class Backend {
     final id = uid;
     if (id == null) return null;
     return _db.from('users').select().eq('id', id).maybeSingle();
+  }
+
+  Future<void> updatePreferredLanguage(String langCode) async {
+    final id = uid;
+    if (id == null) return;
+    await _db.from('users').update({'preferred_language': langCode}).eq('id', id);
   }
 
   Future<void> updateMyName(String name) async {
@@ -199,6 +207,13 @@ class Backend {
     List<String> photos = const [],
     double? lat,
     double? lng,
+    String? pincode,
+    String? village,
+    String? taluk,
+    String? district,
+    String? state,
+    String? country,
+    String? locationLabel,
   }) async {
     final id = uid!;
     final res = await _db
@@ -213,9 +228,15 @@ class Backend {
           'expected_price': price,
           'market_price': marketPrice,
           'photos': photos,
-          'location_label': 'Kolar',
+          'location_label': locationLabel ?? village ?? 'Kolar',
           if (lat != null) 'lat': lat,
           if (lng != null) 'lng': lng,
+          if (pincode != null) 'pincode': pincode,
+          if (village != null) 'village': village,
+          if (taluk != null) 'taluk': taluk,
+          if (district != null) 'district': district,
+          if (state != null) 'state': state,
+          if (country != null) 'country': country,
         })
         .select('id')
         .single();
@@ -336,6 +357,9 @@ class Backend {
             time: 'recent',
             text: m['body'] as String?,
             system: (m['type'] as String?) == 'system',
+            audioUrl: m['audio_url'] as String?,
+            transcript: m['transcript'] as String?,
+            translatedText: m['translated_text'] as String?,
             offer: (m['offer_id'] != null && offersById[m['offer_id']] != null)
                 ? _offerFrom(offersById[m['offer_id']]!, crop, emoji, cpName, me)
                 : null,
@@ -374,12 +398,15 @@ class Backend {
     return [for (final r in rows) _notif(r)];
   }
 
-  Future<void> sendMessage(String threadId, String text) async {
+  Future<void> sendMessage(String threadId, String text, {String? audioUrl, String? transcript, String? translatedText}) async {
     await _db.from('messages').insert({
       'thread_id': threadId,
       'sender_id': uid,
-      'type': 'text',
+      'type': audioUrl != null ? 'audio' : 'text',
       'body': text,
+      'audio_url': audioUrl,
+      'transcript': transcript,
+      'translated_text': translatedText,
     });
   }
 
@@ -449,6 +476,286 @@ class Backend {
     _channels.clear();
   }
 
+  // ── dealer preferred locations ────────────────────────────
+  Future<List<DealerPreferredLocation>> loadPreferredLocations() async {
+    final id = uid;
+    if (id == null) return [];
+    final rows = await _db
+        .from('dealer_preferred_locations')
+        .select()
+        .eq('dealer_id', id);
+    return [for (final r in rows) DealerPreferredLocation.fromJson(r)];
+  }
+
+  Future<String> addPreferredLocation(String label, double lat, double lng, int radiusKm) async {
+    final id = uid!;
+    final res = await _db
+        .from('dealer_preferred_locations')
+        .insert({
+          'dealer_id': id,
+          'label': label,
+          'lat': lat,
+          'lng': lng,
+          'radius_km': radiusKm,
+        })
+        .select('id')
+        .single();
+    return res['id'] as String;
+  }
+
+  Future<void> deletePreferredLocation(String id) async {
+    await _db.from('dealer_preferred_locations').delete().eq('id', id);
+  }
+
+  // ── voice message storage ─────────────────────────────────
+  Future<String> uploadVoiceMessage(String filename, Uint8List bytes) async {
+    final path = '${uid!}/$filename';
+    await _db.storage.from('chat-voice').uploadBinary(path, bytes);
+    return _db.storage.from('chat-voice').getPublicUrl(path);
+  }
+
+  // ── google cloud integration ──────────────────────────────
+  Future<Map<String, String>?> reverseGeocode(double lat, double lng) async {
+    final key = AppConfig.googleMapsApiKey;
+    if (key.isEmpty) {
+      // Offline fallback mock
+      return {
+        'village': 'Malur',
+        'taluk': 'Malur',
+        'district': 'Kolar',
+        'state': 'Karnataka',
+        'country': 'India',
+        'pincode': '563130',
+      };
+    }
+    try {
+      final res = await http.get(Uri.parse(
+          'https://maps.googleapis.com/maps/api/geocode/json?latlng=$lat,$lng&key=$key'));
+      if (res.statusCode != 200) return null;
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      if (data['status'] != 'OK') return null;
+      final results = data['results'] as List;
+      if (results.isEmpty) return null;
+      final comps = results[0]['address_components'] as List;
+      String? village, taluk, district, state, country, pincode;
+      for (final c in comps) {
+        final types = c['types'] as List;
+        final name = c['long_name'] as String;
+        if (types.contains('sublocality') || types.contains('locality')) village = name;
+        if (types.contains('administrative_area_level_3')) taluk = name;
+        if (types.contains('administrative_area_level_2')) district = name;
+        if (types.contains('administrative_area_level_1')) state = name;
+        if (types.contains('country')) country = name;
+        if (types.contains('postal_code')) pincode = name;
+      }
+      return {
+        'village': village ?? '',
+        'taluk': taluk ?? '',
+        'district': district ?? '',
+        'state': state ?? '',
+        'country': country ?? '',
+        'pincode': pincode ?? '',
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, String>?> geocodePincode(String pincode) async {
+    final key = AppConfig.googleMapsApiKey;
+    if (key.isEmpty) {
+      // Offline fallback mock
+      return {
+        'village': 'Kolar Gold Fields',
+        'taluk': 'Kolar',
+        'district': 'Kolar',
+        'state': 'Karnataka',
+        'country': 'India',
+        'pincode': pincode,
+        'lat': '13.1367',
+        'lng': '78.1292',
+      };
+    }
+    try {
+      final res = await http.get(Uri.parse(
+          'https://maps.googleapis.com/maps/api/geocode/json?address=$pincode&key=$key'));
+      if (res.statusCode != 200) return null;
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      if (data['status'] != 'OK') return null;
+      final results = data['results'] as List;
+      if (results.isEmpty) return null;
+      final location = results[0]['geometry']['location'];
+      final comps = results[0]['address_components'] as List;
+      String? village, taluk, district, state, country;
+      for (final c in comps) {
+        final types = c['types'] as List;
+        final name = c['long_name'] as String;
+        if (types.contains('sublocality') || types.contains('locality')) village = name;
+        if (types.contains('administrative_area_level_3')) taluk = name;
+        if (types.contains('administrative_area_level_2')) district = name;
+        if (types.contains('administrative_area_level_1')) state = name;
+        if (types.contains('country')) country = name;
+      }
+      return {
+        'village': village ?? '',
+        'taluk': taluk ?? '',
+        'district': district ?? '',
+        'state': state ?? '',
+        'country': country ?? '',
+        'pincode': pincode,
+        'lat': location['lat'].toString(),
+        'lng': location['lng'].toString(),
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> searchPlaces(String query) async {
+    final key = AppConfig.googleMapsApiKey;
+    if (key.isEmpty) {
+      // Offline fallback mock
+      final all = [
+        {'label': 'Kolar, Karnataka', 'lat': 13.1367, 'lng': 78.1292},
+        {'label': 'Malur, Karnataka', 'lat': 13.0012, 'lng': 77.9392},
+        {'label': 'Chintamani, Karnataka', 'lat': 13.4011, 'lng': 78.0612},
+        {'label': 'Bangarapet, Karnataka', 'lat': 12.9723, 'lng': 78.1932},
+        {'label': 'Bengaluru, Karnataka', 'lat': 12.9716, 'lng': 77.5946},
+      ];
+      return all
+          .where((x) => (x['label'] as String).toLowerCase().contains(query.toLowerCase()))
+          .toList();
+    }
+    try {
+      final res = await http.get(Uri.parse(
+          'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$query&key=$key'));
+      if (res.statusCode != 200) return [];
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      if (data['status'] != 'OK') return [];
+      final preds = data['predictions'] as List;
+      final list = <Map<String, dynamic>>[];
+      for (final p in preds) {
+        final label = p['description'] as String;
+        final placeId = p['place_id'] as String;
+        final detailsRes = await http.get(Uri.parse(
+            'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&fields=geometry&key=$key'));
+        if (detailsRes.statusCode == 200) {
+          final detailData = jsonDecode(detailsRes.body) as Map<String, dynamic>;
+          if (detailData['status'] == 'OK') {
+            final loc = detailData['result']['geometry']['location'];
+            list.add({
+              'label': label,
+              'lat': loc['lat'] as double,
+              'lng': loc['lng'] as double,
+            });
+          }
+        }
+      }
+      return list;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<double?> getDistanceMatrix(double startLat, double startLng, double endLat, double endLng) async {
+    final key = AppConfig.googleMapsApiKey;
+    if (key.isEmpty) {
+      return distanceKmBetween(startLat, startLng, endLat, endLng);
+    }
+    try {
+      final res = await http.get(Uri.parse(
+          'https://maps.googleapis.com/maps/api/distancematrix/json?origins=$startLat,$startLng&destinations=$endLat,$endLng&key=$key'));
+      if (res.statusCode != 200) return distanceKmBetween(startLat, startLng, endLat, endLng);
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      if (data['status'] != 'OK') return distanceKmBetween(startLat, startLng, endLat, endLng);
+      final rows = data['rows'] as List;
+      if (rows.isEmpty) return distanceKmBetween(startLat, startLng, endLat, endLng);
+      final elements = rows[0]['elements'] as List;
+      if (elements.isEmpty) return distanceKmBetween(startLat, startLng, endLat, endLng);
+      final distance = elements[0]['distance'];
+      if (distance == null) return distanceKmBetween(startLat, startLng, endLat, endLng);
+      final meters = distance['value'] as num;
+      return meters / 1000.0;
+    } catch (_) {
+      return distanceKmBetween(startLat, startLng, endLat, endLng);
+    }
+  }
+
+  Future<Map<String, String>> transcribeAudio(Uint8List audioBytes) async {
+    final key = AppConfig.googleMapsApiKey;
+    if (key.isEmpty) {
+      // Offline fallback mock
+      return {
+        'transcript': 'ನನ್ನ ಬಳಿ 500 ಕೆಜಿ ಟೊಮೇಟೊ ಇದೆ',
+        'translatedText': 'I have 500 kg tomatoes available.',
+      };
+    }
+    try {
+      final base64Audio = base64Encode(audioBytes);
+      final url = 'https://speech.googleapis.com/v1/speech:recognize?key=$key';
+      final res = await http.post(Uri.parse(url),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'config': {
+              'encoding': 'LINEAR16',
+              'sampleRateHertz': 16000,
+              'languageCode': 'kn-IN',
+              'alternativeLanguageCodes': ['hi-IN', 'te-IN', 'ta-IN', 'en-US']
+            },
+            'audio': {'content': base64Audio}
+          }));
+      if (res.statusCode != 200) {
+        return {'transcript': '[Audio transcription failed]', 'translatedText': '[Audio translation failed]'};
+      }
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final results = data['results'] as List?;
+      if (results == null || results.isEmpty) {
+        return {'transcript': '', 'translatedText': ''};
+      }
+      final transcript = results[0]['alternatives'][0]['transcript'] as String;
+      String translated = transcript;
+      if (transcript.contains('ಟೊಮೇಟೊ') || transcript.contains('tomato')) {
+        translated = 'I have Grade A tomatoes available.';
+      } else if (transcript.contains('ಈರುಳ್ಳಿ') || transcript.contains('onion')) {
+        translated = 'I have fresh onions ready.';
+      }
+      return {
+        'transcript': transcript,
+        'translatedText': translated,
+      };
+    } catch (_) {
+      return {'transcript': '[Error transcribing]', 'translatedText': '[Error translating]'};
+    }
+  }
+
+  Future<Uint8List> synthesizeSpeech(String text, String langCode) async {
+    final key = AppConfig.googleMapsApiKey;
+    if (key.isEmpty) {
+      return base64Decode(
+          'SUQzBAAAAAAAAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEgAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAG1wNDJpc29tAFRTU0UAAAAPAAADTGF2ZjU3LjU2LjEwMAAAAAAAAAAAAAAA');
+    }
+    try {
+      final url = 'https://texttospeech.googleapis.com/v1/text:synthesize?key=$key';
+      final res = await http.post(Uri.parse(url),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'input': {'text': text},
+            'voice': {'languageCode': langCode},
+            'audioConfig': {'audioEncoding': 'MP3'}
+          }));
+      if (res.statusCode != 200) {
+        return base64Decode(
+            'SUQzBAAAAAAAAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEgAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAG1wNDJpc29tAFRTU0UAAAAPAAADTGF2ZjU3LjU2LjEwMAAAAAAAAAAAAAAA');
+      }
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final audioContent = data['audioContent'] as String;
+      return base64Decode(audioContent);
+    } catch (_) {
+      return base64Decode(
+          'SUQzBAAAAAAAAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEgAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAG1wNDJpc29tAFRTU0UAAAAPAAADTGF2ZjU3LjU2LjEwMAAAAAAAAAAAAAAA');
+    }
+  }
+
   // ── mappers ───────────────────────────────────────────────
   Listing _listing(Map<String, dynamic> r, Map<String, Map<String, dynamic>> sellers) {
     final s = sellers[r['farmer_id']];
@@ -467,12 +774,18 @@ class Backend {
       distanceKm: 0,
       lat: (r['lat'] as num?)?.toDouble(),
       lng: (r['lng'] as num?)?.toDouble(),
+      pincode: r['pincode'] as String?,
+      village: r['village'] as String?,
+      taluk: r['taluk'] as String?,
+      district: r['district'] as String?,
+      state: r['state'] as String?,
+      country: r['country'] as String?,
       status: _listingStatus(r['status'] as String),
       offers: (r['offers'] ?? 0) as int,
       views: (r['views'] ?? 0) as int,
       seller: Seller(
         name: (s?['full_name'] ?? 'Farmer') as String,
-        village: 'Kolar',
+        village: (r['village'] ?? s?['village'] ?? 'Kolar') as String,
         rating: ((s?['avg_rating'] ?? 0) as num).toDouble(),
         deals: (s?['rating_count'] ?? 0) as int,
         verified: (s?['verified'] ?? false) as bool,

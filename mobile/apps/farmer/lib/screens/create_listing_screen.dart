@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:openmandi_ui/openmandi_ui.dart';
 
-const _steps = ['Crop', 'Quantity', 'Quality', 'Photos', 'Price', 'Review'];
+const _steps = ['Crop', 'Quantity', 'Quality', 'Location', 'Photos', 'Price', 'Review'];
 
 class CreateListingSheet extends StatefulWidget {
   const CreateListingSheet({super.key});
@@ -26,6 +26,15 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
   bool _publishing = false;
   final _picker = ImagePicker();
   final _price = TextEditingController();
+
+  String? _pincode;
+  String? _village;
+  String? _taluk;
+  String? _district;
+  String? _state;
+  String? _country;
+  double? _lat;
+  double? _lng;
 
   final _scroll = ScrollController();
 
@@ -61,7 +70,8 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
         0 => _crop != null,
         1 => (double.tryParse(_qty.text) ?? 0) > 0 && _harvest != null,
         2 => _grade != null,
-        4 => _priceNum > 0,
+        3 => _pincode != null && _village != null && _taluk != null && _district != null && _state != null && _country != null,
+        5 => _priceNum > 0,
         _ => true,
       };
 
@@ -106,8 +116,15 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
         price: _priceNum,
         harvestInDays: days,
         photos: urls,
-        lat: plat,
-        lng: plng,
+        lat: _lat ?? plat,
+        lng: _lng ?? plng,
+        pincode: _pincode,
+        village: _village,
+        taluk: _taluk,
+        district: _district,
+        state: _state,
+        country: _country,
+        locationLabel: _village != null ? '$_village, $_taluk' : null,
       );
       if (mounted) setState(() => _done = true);
     } catch (e) {
@@ -224,12 +241,37 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
           organic: _organic,
           onOrganic: () => setState(() => _organic = !_organic),
         ),
-      3 => _StepPhotos(
+      3 => LocationPickerWidget(
+          initialLat: _lat,
+          initialLng: _lng,
+          onLocationSelected: ({
+            required String pincode,
+            required String village,
+            required String taluk,
+            required String district,
+            required String state,
+            required String country,
+            required double lat,
+            required double lng,
+          }) {
+            setState(() {
+              _pincode = pincode;
+              _village = village;
+              _taluk = taluk;
+              _district = district;
+              _state = state;
+              _country = country;
+              _lat = lat;
+              _lng = lng;
+            });
+          },
+        ),
+      4 => _StepPhotos(
           photos: _photos,
           onAdd: _photos.length < 3 ? _pickPhoto : null,
           onRemove: (i) => setState(() => _photos.removeAt(i)),
         ),
-      4 => _StepPrice(
+      5 => _StepPrice(
           crop: _crop!,
           price: _price,
           verdict: _verdict,
@@ -243,6 +285,7 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
           organic: _organic,
           photos: _photos.length,
           price: _priceNum,
+          location: _village != null ? '$_village, $_taluk' : null,
         ),
     };
   }
@@ -927,6 +970,7 @@ class _StepReview extends StatelessWidget {
     required this.organic,
     required this.photos,
     required this.price,
+    this.location,
   });
   final Crop crop;
   final String qty;
@@ -936,6 +980,7 @@ class _StepReview extends StatelessWidget {
   final bool organic;
   final int photos;
   final int price;
+  final String? location;
 
   @override
   Widget build(BuildContext context) {
@@ -962,6 +1007,7 @@ class _StepReview extends StatelessWidget {
                         : '${harvest!.day}/${harvest!.month}/${harvest!.year}'),
                 _row('Grade', grade == null ? '—' : 'Grade ${grade!.label}'),
                 _row('Organic', organic ? 'Yes' : 'No'),
+                if (location != null) _row('Location', location!),
                 _row('Photos', '$photos added'),
                 _row('Asking price', price == 0 ? '—' : '${inr(price)}/quintal',
                     last: true),

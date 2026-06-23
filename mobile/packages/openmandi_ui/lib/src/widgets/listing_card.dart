@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
+import '../store/app_store.dart';
 import 'chips.dart';
 import 'money.dart';
 import 'produce_image.dart';
@@ -45,7 +46,7 @@ class ListingCard extends StatelessWidget {
             children: [
               ProduceImage(l.crop, imageUrl: l.photoUrl, size: 74, organic: l.organic),
               const SizedBox(width: Insets.s3),
-              Expanded(child: _body(vsColor)),
+              Expanded(child: _body(context, vsColor)),
               const SizedBox(width: Insets.s2),
               _trailing(),
             ],
@@ -55,7 +56,7 @@ class ListingCard extends StatelessWidget {
     );
   }
 
-  Widget _body(Color vsColor) {
+  Widget _body(BuildContext context, Color vsColor) {
     final l = listing;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,7 +103,7 @@ class ListingCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 6),
-        showSeller ? _sellerMeta() : _ownMeta(),
+        showSeller ? _sellerMeta(context) : _ownMeta(),
       ],
     );
   }
@@ -126,7 +127,7 @@ class ListingCard extends StatelessWidget {
     );
   }
 
-  Widget _sellerMeta() {
+  Widget _sellerMeta(BuildContext context) {
     final s = listing.seller;
     return Row(
       children: [
@@ -147,7 +148,7 @@ class ListingCard extends StatelessWidget {
         Text(' ${s.rating}',
             style: const TextStyle(fontSize: 12, color: AppColors.muted)),
         const SizedBox(width: Insets.s3),
-        _meta(Icons.near_me_outlined, '${listing.distanceKm} km'),
+        _meta(Icons.near_me_outlined, '${listing.distanceKm} km ${context.store.getTranslated('distance_away')}'),
       ],
     );
   }

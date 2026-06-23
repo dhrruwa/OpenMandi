@@ -3,7 +3,9 @@ import '../models/models.dart';
 import '../models/trade.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
+import '../store/app_store.dart';
 import 'money.dart';
+import 'voice_widgets.dart';
 
 /// Chat bubble. Plain text, an embedded offer card, or a centred system note.
 class MessageBubble extends StatelessWidget {
@@ -35,6 +37,35 @@ class MessageBubble extends StatelessWidget {
     final bg = m.mine ? AppColors.primary : AppColors.surface;
     final fg = m.mine ? AppColors.onPrimary : AppColors.ink;
 
+    final speaker = (m.text != null && m.text!.isNotEmpty && !m.system && !m.isAudio)
+        ? SpeakerTtsButton(
+            text: m.text!,
+            language: context.store.language,
+          )
+        : null;
+
+    final bubble = m.isAudio
+        ? AudioPlayerWidget(
+            audioUrl: m.audioUrl!,
+            transcript: m.transcript,
+            translatedText: m.translatedText,
+          )
+        : Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: Insets.s3, vertical: Insets.s2),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(Radii.md),
+                topRight: const Radius.circular(Radii.md),
+                bottomLeft: Radius.circular(m.mine ? Radii.md : 4),
+                bottomRight: Radius.circular(m.mine ? 4 : Radii.md),
+              ),
+            ),
+            child: Text(m.text ?? '',
+                style: TextStyle(fontSize: 15, color: fg, height: 1.3)),
+          );
+
     return Align(
       alignment: align,
       child: Container(
@@ -43,20 +74,14 @@ class MessageBubble extends StatelessWidget {
             maxWidth: MediaQuery.of(context).size.width * 0.78),
         child: m.offer != null
             ? _offerCard(context, m.offer!, m.mine)
-            : Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: Insets.s3, vertical: Insets.s2),
-                decoration: BoxDecoration(
-                  color: bg,
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(Radii.md),
-                    topRight: const Radius.circular(Radii.md),
-                    bottomLeft: Radius.circular(m.mine ? Radii.md : 4),
-                    bottomRight: Radius.circular(m.mine ? 4 : Radii.md),
-                  ),
-                ),
-                child: Text(m.text ?? '',
-                    style: TextStyle(fontSize: 15, color: fg, height: 1.3)),
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (!m.mine && speaker != null) speaker,
+                  Flexible(child: bubble),
+                  if (m.mine && speaker != null) speaker,
+                ],
               ),
       ),
     );

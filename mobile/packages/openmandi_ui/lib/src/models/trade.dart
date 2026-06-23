@@ -114,6 +114,9 @@ class Message {
     this.text,
     this.offer,
     this.system = false,
+    this.audioUrl,
+    this.transcript,
+    this.translatedText,
   });
   final String id;
   final bool mine;
@@ -121,6 +124,11 @@ class Message {
   final String? text;
   final Offer? offer;
   final bool system;
+  final String? audioUrl;
+  final String? transcript;
+  final String? translatedText;
+
+  bool get isAudio => audioUrl != null;
 }
 
 class Thread {

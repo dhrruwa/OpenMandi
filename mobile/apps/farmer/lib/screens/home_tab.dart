@@ -7,11 +7,11 @@ import 'my_listing_screen.dart';
 enum _Cat { all, live, offers, sold }
 
 extension on _Cat {
-  String get label => switch (this) {
-        _Cat.all => 'All',
-        _Cat.live => 'Live',
-        _Cat.offers => 'Offers',
-        _Cat.sold => 'Sold',
+  String label(AppStore store) => switch (this) {
+        _Cat.all => store.getTranslated('cat_all'),
+        _Cat.live => store.getTranslated('cat_live'),
+        _Cat.offers => store.getTranslated('cat_offers'),
+        _Cat.sold => store.getTranslated('cat_sold'),
       };
   IconData get icon => switch (this) {
         _Cat.all => Icons.grid_view_rounded,
@@ -57,14 +57,14 @@ class _HomeTabState extends State<HomeTab> {
           return Column(
             children: [
               MarketHeader(
-                title: 'Hi, ${store.userName.isEmpty ? 'farmer' : store.userName}',
-                subtitle: 'Kolar, Karnataka · live mandi',
-                searchHint: 'Search your produce…',
+                title: '${store.getTranslated('farmer_label')}: ${store.userName.isEmpty ? 'farmer' : store.userName}',
+                subtitle: store.getTranslated('live_mandi_subtitle'),
+                searchHint: store.getTranslated('search_produce'),
                 onSearchChanged: (v) => setState(() => _query = v),
                 selected: _cat,
                 onCategory: (i) => setState(() => _cat = i),
                 categories: [
-                  for (final c in _Cat.values) MarketCategory(c.icon, c.label),
+                  for (final c in _Cat.values) MarketCategory(c.icon, c.label(store)),
                 ],
                 trailing: [
                   IconButton(
@@ -88,9 +88,9 @@ class _HomeTabState extends State<HomeTab> {
                             builder: (_) => const WalletScreen())),
                       ),
                       SectionHeader(
-                        title: "Today's mandi price",
-                        subtitle: 'Live · eNAM · Kolar APMC',
-                        actionLabel: 'All',
+                        title: store.getTranslated('todays_mandi_price'),
+                        subtitle: store.getTranslated('mandi_price_subtitle'),
+                        actionLabel: store.getTranslated('cat_all'),
                         onAction: () => Navigator.of(context).push(
                             MaterialPageRoute(builder: (_) => const PricesScreen())),
                       ),
@@ -98,16 +98,21 @@ class _HomeTabState extends State<HomeTab> {
                       const SizedBox(height: Insets.s1),
                       const _Divider(),
                       SectionHeader(
-                        title: 'Your listings',
-                        actionLabel: '${store.myListings.where((l) => l.status != ListingStatus.sold).length} active',
+                        title: store.getTranslated('your_listings'),
+                        actionLabel: store.getTranslated('active_count').replaceAll(
+                            '{count}',
+                            store.myListings
+                                .where((l) => l.status != ListingStatus.sold)
+                                .length
+                                .toString()),
                         onAction: () {},
                       ),
                       if (listings.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
                               horizontal: Insets.s4, vertical: Insets.s4),
-                          child: Text('Nothing here — tap “List produce” to add a crop.',
-                              style: TextStyle(color: AppColors.muted)),
+                          child: Text(store.getTranslated('empty_listings_hint'),
+                              style: const TextStyle(color: AppColors.muted)),
                         )
                       else
                         Padding(
@@ -134,7 +139,7 @@ class _HomeTabState extends State<HomeTab> {
                           ),
                         ),
                       const _Divider(),
-                      const SectionHeader(title: 'Activity'),
+                      SectionHeader(title: store.getTranslated('activity_title')),
                       _Activity(),
                     ],
                   ),
@@ -154,9 +159,9 @@ class _Activity extends StatelessWidget {
     final store = context.store;
     final items = store.notifications.take(4).toList();
     if (items.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(horizontal: Insets.s4, vertical: Insets.s3),
-        child: Text('No activity yet.', style: TextStyle(color: AppColors.muted)),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Insets.s4, vertical: Insets.s3),
+        child: Text(store.getTranslated('no_activity'), style: const TextStyle(color: AppColors.muted)),
       );
     }
     return Padding(
