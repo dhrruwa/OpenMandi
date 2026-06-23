@@ -63,10 +63,13 @@ class Listing {
     required this.harvestInDays,
     required this.location,
     required this.distanceKm,
+    this.lat,
+    this.lng,
     required this.status,
     required this.offers,
     required this.views,
     required this.seller,
+    this.photos = const [],
   });
 
   final String id;
@@ -80,13 +83,39 @@ class Listing {
   final int marketPrice; // today's mandi, ₹/quintal
   final int harvestInDays; // 0 = ready now
   final String location;
-  final int distanceKm;
+  final int distanceKm; // computed from device GPS at load (live)
+  final double? lat;
+  final double? lng;
   final ListingStatus status;
   final int offers;
   final int views;
   final Seller seller;
+  final List<String> photos; // uploaded photo URLs; first is the cover
 
+  String? get photoUrl => photos.isEmpty ? null : photos.first;
   bool get readyNow => harvestInDays == 0;
+
+  Listing withDistanceKm(int km) => Listing(
+        id: id,
+        crop: crop,
+        emoji: emoji,
+        qty: qty,
+        unit: unit,
+        grade: grade,
+        organic: organic,
+        price: price,
+        marketPrice: marketPrice,
+        harvestInDays: harvestInDays,
+        location: location,
+        distanceKm: km,
+        lat: lat,
+        lng: lng,
+        status: status,
+        offers: offers,
+        views: views,
+        seller: seller,
+        photos: photos,
+      );
   bool get overMarket => price >= marketPrice;
   int get vsMarket => (price - marketPrice).abs();
 }

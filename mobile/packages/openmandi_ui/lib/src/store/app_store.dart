@@ -48,8 +48,14 @@ class AppStore extends ChangeNotifier {
   final List<MarketPrice> prices = List.of(Mock.prices);
   final Map<String, String> cropIds = {}; // crop name → DB id (live only)
   String? lastError;
+  double? myLat;
+  double? myLng;
 
   bool get live => AppConfig.isLive;
+
+  /// Device coordinates (best-effort; null if unavailable). Mock → null.
+  Future<(double?, double?)> currentLatLng() =>
+      live ? Backend.I.currentLatLng() : Future.value((null, null));
 
   // ── bootstrap ─────────────────────────────
   /// Entry point used by main(): live → load from Supabase; else seed mock.
@@ -66,7 +72,16 @@ class AppStore extends ChangeNotifier {
     }
   }
 
+  bool _reloading = false;
+  bool _reloadAgain = false;
+
   Future<void> reloadAll() async {
+    // coalesce bursts of realtime events into at most one in-flight reload
+    if (_reloading) {
+      _reloadAgain = true;
+      return;
+    }
+    _reloading = true;
     final b = Backend.I;
     try {
       final row = await b.myUserRow();
@@ -104,9 +119,19 @@ class AppStore extends ChangeNotifier {
           ..addAll(mine);
       } else {
         final m = await b.loadMarketListings();
+        final (mlat, mlng) = await b.currentLatLng();
+        myLat = mlat;
+        myLng = mlng;
+        final withDist = [
+          for (final l in m)
+            () {
+              final d = b.distanceKmBetween(mlat, mlng, l.lat, l.lng);
+              return d == null ? l : l.withDistanceKm(d.round());
+            }()
+        ];
         market
           ..clear()
-          ..addAll(m);
+          ..addAll(withDist);
       }
       final ords = await b.loadOrders();
       orders
@@ -126,17 +151,43 @@ class AppStore extends ChangeNotifier {
       notifications
         ..clear()
         ..addAll(notifs);
+
+      // fill each order's mandi reference + derive real wallet/escrow
+      for (final o in orders) {
+        o.marketPrice = priceByName[o.crop] ?? o.marketPrice;
+      }
+      escrow = orders
+          .where((o) => o.paidToEscrow && o.active)
+          .fold(0, (s, o) => s + o.total);
+      wallet = isFarmer
+          ? orders.where((o) => o.done).fold(0, (s, o) => s + o.total)
+          : 0; // dealers fund per-order via escrow; no standing balance
       lastError = null;
     } catch (e) {
       lastError = '$e';
+    } finally {
+      _reloading = false;
     }
     notifyListeners();
+    if (_reloadAgain) {
+      _reloadAgain = false;
+      await reloadAll();
+    }
   }
 
+  bool _subscribed = false;
   void _subscribeRealtime() {
+    if (_subscribed) return;
+    _subscribed = true;
     for (final table in ['orders', 'notifications', 'messages', 'offers', 'listings']) {
-      Backend.I.subscribe(table, () => reloadAll());
+      Backend.I.subscribe(table, reloadAll);
     }
+  }
+
+  @override
+  void dispose() {
+    if (live) Backend.I.disposeChannels();
+    super.dispose();
   }
 
   /// Run a live write, then refresh from server truth. Errors captured.
@@ -321,6 +372,9 @@ class AppStore extends ChangeNotifier {
     required bool organic,
     required int price,
     required int harvestInDays,
+    List<String> photos = const [],
+    double? lat,
+    double? lng,
   }) {
     if (live) {
       final cropId = cropIds[crop.name];
@@ -334,6 +388,9 @@ class AppStore extends ChangeNotifier {
               price: price,
               marketPrice: crop.marketPrice,
               harvestInDays: harvestInDays,
+              photos: photos,
+              lat: lat,
+              lng: lng,
             ));
       }
       return;
@@ -357,6 +414,7 @@ class AppStore extends ChangeNotifier {
         offers: 0,
         views: 0,
         seller: const Seller(name: 'Lakshmi', village: 'Kolar', rating: 4.8, deals: 34),
+        photos: photos,
       ),
     );
     notifyListeners();
@@ -410,12 +468,9 @@ class AppStore extends ChangeNotifier {
   }
 
   // ── dealer: make an offer ─────────────────
+  /// Mock-only optimistic offer→order. In live mode the dealer UI calls
+  /// Backend.makeOffer directly (creates offer+thread; farmer accepts later).
   Order makeOffer(Listing l, {required int price, required double qty}) {
-    // Live: persist the real offer + thread (farmer accepts later). The local
-    // optimistic order below keeps the UI flowing; reloadAll reconciles.
-    if (live) {
-      _live(() => Backend.I.makeOffer(l.id, price, qty));
-    }
     final offer = Offer(
       id: _id('of'),
       listingId: l.id,
@@ -567,6 +622,9 @@ class AppStore extends ChangeNotifier {
       o.buyerRated = true;
     }
     notifyListeners();
+    if (live && o.counterpartyId.isNotEmpty) {
+      _live(() => Backend.I.submitReview(o.id, o.counterpartyId, stars));
+    }
   }
 
   void withdraw(int amount) {

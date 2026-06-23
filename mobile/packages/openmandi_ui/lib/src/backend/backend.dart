@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/models.dart';
@@ -64,6 +65,31 @@ class Backend {
   }
 
   Future<void> signOut() => _db.auth.signOut();
+
+  // ── geolocation (best-effort; no maps key needed) ─────────
+  /// Device position, or (null,null) if unavailable/denied.
+  Future<(double?, double?)> currentLatLng() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return (null, null);
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
+        return (null, null);
+      }
+      final pos = await Geolocator.getCurrentPosition();
+      return (pos.latitude, pos.longitude);
+    } catch (_) {
+      return (null, null);
+    }
+  }
+
+  double? distanceKmBetween(double? aLat, double? aLng, double? bLat, double? bLng) {
+    if (aLat == null || aLng == null || bLat == null || bLng == null) return null;
+    return Geolocator.distanceBetween(aLat, aLng, bLat, bLng) / 1000.0;
+  }
 
   // ── profile / kyc ─────────────────────────────────────────
   Future<Map<String, dynamic>?> myUserRow() async {
@@ -171,6 +197,8 @@ class Backend {
     required int marketPrice,
     required int harvestInDays,
     List<String> photos = const [],
+    double? lat,
+    double? lng,
   }) async {
     final id = uid!;
     final res = await _db
@@ -186,6 +214,8 @@ class Backend {
           'market_price': marketPrice,
           'photos': photos,
           'location_label': 'Kolar',
+          if (lat != null) 'lat': lat,
+          if (lng != null) 'lng': lng,
         })
         .select('id')
         .single();
@@ -211,9 +241,24 @@ class Backend {
 
   // ── orders / notifications / chat ─────────────────────────
   Future<List<Order>> loadOrders() async {
+    final id = uid;
     final rows =
         await _db.from('orders').select().order('created_at', ascending: false);
-    return [for (final r in rows) _order(r)];
+    final ids = <String>{
+      for (final r in rows)
+        (r['farmer_id'] as String) == id
+            ? r['dealer_id'] as String
+            : r['farmer_id'] as String
+    };
+    final names = await _sellerLookup(ids);
+    final reviewed = <String>{};
+    if (id != null) {
+      final rv = await _db.from('reviews').select('order_id').eq('from_user', id);
+      for (final r in rv) {
+        reviewed.add(r['order_id'] as String);
+      }
+    }
+    return [for (final r in rows) _order(r, id, names, reviewed)];
   }
 
   /// Pending offers on the current farmer's listings.
@@ -244,7 +289,8 @@ class Backend {
     ];
   }
 
-  /// Conversation threads the user is part of, with messages.
+  /// Conversation threads the user is part of, with messages, embedded offer
+  /// cards, and the counterparty's real name.
   Future<List<Thread>> loadThreads() async {
     final id = uid;
     if (id == null) return [];
@@ -252,27 +298,72 @@ class Backend {
         .from('threads')
         .select('*, messages(*), offers(*)')
         .order('updated_at', ascending: false);
-    return [
+    final otherIds = <String>{
       for (final r in rows)
-        Thread(
-          id: r['id'] as String,
-          name: (r['farmer_id'] == id) ? 'Dealer' : 'Farmer',
-          role: (r['farmer_id'] == id) ? 'Dealer' : 'Farmer',
-          crop: (r['crop_label'] ?? '') as String,
-          emoji: (r['emoji'] ?? '🌱') as String,
-          messages: [
-            for (final m in (r['messages'] as List? ?? []))
-              Message(
-                id: m['id'] as String,
-                mine: m['sender_id'] == id,
-                time: 'recent',
-                text: m['body'] as String?,
-                system: (m['type'] as String?) == 'system',
-              )
-          ]..sort((a, b) => a.id.compareTo(b.id)),
-        ),
-    ];
+        (r['farmer_id'] == id ? r['dealer_id'] : r['farmer_id']) as String
+    };
+    final names = await _sellerLookup(otherIds);
+    return [for (final r in rows) _thread(r, id, names)];
   }
+
+  Thread _thread(
+      Map<String, dynamic> r, String me, Map<String, Map<String, dynamic>> names) {
+    final iAmFarmer = r['farmer_id'] == me;
+    final otherId = (iAmFarmer ? r['dealer_id'] : r['farmer_id']) as String;
+    final cpName = (names[otherId]?['full_name'] as String?)?.trim().isNotEmpty == true
+        ? names[otherId]!['full_name'] as String
+        : (iAmFarmer ? 'Buyer' : 'Farmer');
+    final crop = (r['crop_label'] ?? '') as String;
+    final emoji = (r['emoji'] ?? '🌱') as String;
+    final offersById = {
+      for (final o in (r['offers'] as List? ?? [])) o['id'] as String: o
+    };
+    final rawMsgs = List<Map<String, dynamic>>.from(r['messages'] as List? ?? [])
+      ..sort((a, b) =>
+          (a['created_at'] as String).compareTo(b['created_at'] as String));
+
+    return Thread(
+      id: r['id'] as String,
+      name: cpName,
+      role: iAmFarmer ? 'Buyer' : 'Farmer',
+      crop: crop,
+      emoji: emoji,
+      messages: [
+        for (final m in rawMsgs)
+          Message(
+            id: m['id'] as String,
+            mine: m['sender_id'] == me,
+            time: 'recent',
+            text: m['body'] as String?,
+            system: (m['type'] as String?) == 'system',
+            offer: (m['offer_id'] != null && offersById[m['offer_id']] != null)
+                ? _offerFrom(offersById[m['offer_id']]!, crop, emoji, cpName, me)
+                : null,
+          ),
+      ],
+    );
+  }
+
+  Offer _offerFrom(Map<String, dynamic> o, String crop, String emoji,
+          String party, String me) =>
+      Offer(
+        id: o['id'] as String,
+        listingId: (o['listing_id'] ?? '') as String,
+        crop: crop,
+        emoji: emoji,
+        party: party,
+        partyRole: 'Trader',
+        price: (o['price'] ?? 0) as int,
+        qty: (o['quantity'] as num).toDouble(),
+        unit: _unit(o['unit'] as String),
+        marketPrice: 0,
+        when: 'recent',
+        fromMe: o['from_user'] == me,
+        status: _offerStatus((o['status'] ?? 'pending') as String),
+      );
+
+  OfferStatus _offerStatus(String s) =>
+      OfferStatus.values.firstWhere((x) => x.name == s, orElse: () => OfferStatus.pending);
 
   Future<List<AppNotification>> loadNotifications() async {
     final rows = await _db
@@ -335,8 +426,10 @@ class Backend {
   }
 
   // ── realtime ──────────────────────────────────────────────
+  final List<RealtimeChannel> _channels = [];
+
   RealtimeChannel subscribe(String name, void Function() onChange) {
-    return _db
+    final ch = _db
         .channel('rt:$name')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -345,6 +438,15 @@ class Backend {
           callback: (_) => onChange(),
         )
         .subscribe();
+    _channels.add(ch);
+    return ch;
+  }
+
+  Future<void> disposeChannels() async {
+    for (final c in _channels) {
+      await _db.removeChannel(c);
+    }
+    _channels.clear();
   }
 
   // ── mappers ───────────────────────────────────────────────
@@ -363,6 +465,8 @@ class Backend {
       harvestInDays: 0,
       location: (r['location_label'] ?? '') as String,
       distanceKm: 0,
+      lat: (r['lat'] as num?)?.toDouble(),
+      lng: (r['lng'] as num?)?.toDouble(),
       status: _listingStatus(r['status'] as String),
       offers: (r['offers'] ?? 0) as int,
       views: (r['views'] ?? 0) as int,
@@ -373,23 +477,38 @@ class Backend {
         deals: (s?['rating_count'] ?? 0) as int,
         verified: (s?['verified'] ?? false) as bool,
       ),
+      photos: (r['photos'] as List?)?.map((e) => e.toString()).toList() ?? const [],
     );
   }
 
-  Order _order(Map<String, dynamic> r) => Order(
-        id: r['id'] as String,
-        crop: (r['crop_label'] ?? '') as String,
-        emoji: (r['emoji'] ?? '🌱') as String,
-        counterparty: 'Counterparty',
-        counterpartyRole: 'Trader',
-        price: (r['final_price'] ?? 0) as int,
-        qty: (r['quantity'] as num).toDouble(),
-        unit: _unit(r['unit'] as String),
-        marketPrice: 0,
-        placedWhen: 'recent',
-        stage: _stage(r['status'] as String),
-        paidToEscrow: (r['status'] as String) != 'accepted',
-      );
+  Order _order(Map<String, dynamic> r, String? me,
+      Map<String, Map<String, dynamic>> names, Set<String> reviewed) {
+    final farmerId = r['farmer_id'] as String;
+    final dealerId = r['dealer_id'] as String;
+    final iAmFarmer = farmerId == me;
+    final cpId = iAmFarmer ? dealerId : farmerId;
+    final cp = names[cpId];
+    final didReview = reviewed.contains(r['id']);
+    return Order(
+      id: r['id'] as String,
+      crop: (r['crop_label'] ?? '') as String,
+      emoji: (r['emoji'] ?? '🌱') as String,
+      counterparty: (cp?['full_name'] as String?)?.trim().isNotEmpty == true
+          ? cp!['full_name'] as String
+          : (iAmFarmer ? 'Buyer' : 'Farmer'),
+      counterpartyRole: iAmFarmer ? 'Buyer' : 'Farmer',
+      counterpartyId: cpId,
+      price: (r['final_price'] ?? 0) as int,
+      qty: (r['quantity'] as num).toDouble(),
+      unit: _unit(r['unit'] as String),
+      marketPrice: 0,
+      placedWhen: 'recent',
+      stage: _stage(r['status'] as String),
+      paidToEscrow: (r['status'] as String) != 'accepted',
+      buyerRated: !iAmFarmer && didReview,
+      sellerRated: iAmFarmer && didReview,
+    );
+  }
 
   AppNotification _notif(Map<String, dynamic> r) => AppNotification(
         id: r['id'] as String,

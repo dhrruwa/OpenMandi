@@ -22,6 +22,7 @@ class ProduceImage extends StatelessWidget {
   const ProduceImage(
     this.crop, {
     super.key,
+    this.imageUrl,
     this.size,
     this.width,
     this.height,
@@ -30,6 +31,7 @@ class ProduceImage extends StatelessWidget {
   });
 
   final String crop;
+  final String? imageUrl; // a real uploaded photo; falls back to crop fetch
   final double? size;
   final double? width;
   final double? height;
@@ -40,12 +42,15 @@ class ProduceImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final w = width ?? size;
     final h = height ?? size;
+    final url = (imageUrl != null && imageUrl!.trim().isNotEmpty)
+        ? imageUrl!
+        : produceImageUrl(crop,
+            w: ((w ?? 400).clamp(80, 800)).round() * 2,
+            h: ((h ?? 400).clamp(80, 800)).round() * 2);
     final img = ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: Image.network(
-        produceImageUrl(crop,
-            w: ((w ?? 400).clamp(80, 800)).round() * 2,
-            h: ((h ?? 400).clamp(80, 800)).round() * 2),
+        url,
         width: w,
         height: h,
         fit: BoxFit.cover,

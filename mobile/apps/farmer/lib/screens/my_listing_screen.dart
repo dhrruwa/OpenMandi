@@ -76,7 +76,7 @@ class MyListingScreen extends StatelessWidget {
   Widget _hero() {
     return Row(
       children: [
-        ProduceImage(listing.crop, size: 64, organic: listing.organic),
+        ProduceImage(listing.crop, imageUrl: listing.photoUrl, size: 64, organic: listing.organic),
         const SizedBox(width: Insets.s3),
         Expanded(
           child: Column(
@@ -246,10 +246,8 @@ class _OfferCard extends StatelessWidget {
                   style: const TextStyle(
                       fontSize: 14, fontWeight: FontWeight.w600)),
               const Spacer(),
-              AppButton.ghost('Counter', onPressed: () {}),
-              const SizedBox(width: Insets.s2),
               SizedBox(
-                width: 130,
+                width: 150,
                 child: AppButton.accent('Accept', onPressed: onAccept),
               ),
             ],

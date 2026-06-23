@@ -42,7 +42,7 @@ class ListingCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ProduceImage(l.crop, size: 74, organic: l.organic),
+            ProduceImage(l.crop, imageUrl: l.photoUrl, size: 74, organic: l.organic),
             const SizedBox(width: Insets.s3),
             Expanded(child: _body(vsColor)),
             const SizedBox(width: Insets.s2),

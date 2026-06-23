@@ -57,7 +57,7 @@ class ListingDetailScreen extends StatelessWidget {
       child: Stack(
         children: [
           Positioned.fill(
-            child: ProduceImage(l.crop, width: double.infinity, height: 200, radius: 0),
+            child: ProduceImage(l.crop, imageUrl: l.photoUrl, width: double.infinity, height: 200, radius: 0),
           ),
           Positioned(
             left: Insets.s4,

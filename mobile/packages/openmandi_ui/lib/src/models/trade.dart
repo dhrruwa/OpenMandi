@@ -65,6 +65,7 @@ class Order {
     this.paidToEscrow = false,
     this.buyerRated = false,
     this.sellerRated = false,
+    this.counterpartyId = '',
   });
 
   final String id;
@@ -72,10 +73,11 @@ class Order {
   final String emoji;
   final String counterparty;
   final String counterpartyRole;
+  final String counterpartyId; // the other party's user id (for reviews, live)
   final int price;
   final double qty;
   final Unit unit;
-  final int marketPrice;
+  int marketPrice; // filled from live prices after load
   final String placedWhen;
   OrderStage stage;
   bool paidToEscrow;

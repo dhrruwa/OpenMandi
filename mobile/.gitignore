@@ -1,1 +1,4 @@
 openmandi.env.json
+**/key.properties
+*.jks
+*.keystore

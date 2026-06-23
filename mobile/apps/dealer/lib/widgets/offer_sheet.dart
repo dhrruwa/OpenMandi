@@ -174,20 +174,42 @@ class _OfferSheetState extends State<OfferSheet> {
     );
   }
 
-  void _send(BuildContext context) {
+  Future<void> _send(BuildContext context) async {
     final store = context.store;
+    final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    if (store.live) {
+      nav.pop();
+      try {
+        final threadId =
+            await Backend.I.makeOffer(widget.listing.id, _priceNum, _qtyNum);
+        await store.reloadAll();
+        nav.push(MaterialPageRoute(builder: (_) => ChatThreadScreen(threadId)));
+        messenger.showSnackBar(SnackBar(
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          content: Text('Offer sent to ${widget.listing.seller.name}'),
+        ));
+      } catch (e) {
+        messenger.showSnackBar(SnackBar(
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+          content: Text('Could not send offer: $e'),
+        ));
+      }
+      return;
+    }
+
+    // mock: optimistic order + go straight to the order screen
     final order = store.makeOffer(widget.listing, price: _priceNum, qty: _qtyNum);
-    Navigator.of(context).pop();
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => OrderDetailScreen(order)),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-        content: Text('${widget.listing.seller.name} accepted — pay into escrow to confirm'),
-      ),
-    );
+    nav.pop();
+    nav.push(MaterialPageRoute(builder: (_) => OrderDetailScreen(order)));
+    messenger.showSnackBar(SnackBar(
+      backgroundColor: AppColors.primary,
+      behavior: SnackBarBehavior.floating,
+      content: Text('${widget.listing.seller.name} accepted — pay into escrow to confirm'),
+    ));
   }
 
   static String _fmtQty(double q) =>

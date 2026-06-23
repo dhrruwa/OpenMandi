@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:openmandi_ui/openmandi_ui.dart';
 
 const _steps = ['Crop', 'Quantity', 'Quality', 'Photos', 'Price', 'Review'];
@@ -21,7 +22,9 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
   DateTime? _harvest;
   Grade? _grade;
   bool _organic = false;
-  final List<String> _photos = [];
+  final List<Uint8List> _photos = [];
+  bool _publishing = false;
+  final _picker = ImagePicker();
   final _price = TextEditingController();
 
   final _scroll = ScrollController();
@@ -65,11 +68,35 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
   bool get _last => _step == _steps.length - 1;
 
   void _next() {
-    if (_last) {
-      final store = context.store;
-      final days = _harvest == null
-          ? 0
-          : _harvest!.difference(DateTime.now()).inDays.clamp(0, 120);
+    setState(() => _step++);
+    _scroll.jumpTo(0);
+  }
+
+  Future<void> _pickPhoto() async {
+    final x = await _picker.pickImage(
+        source: ImageSource.gallery, maxWidth: 1280, imageQuality: 82);
+    if (x == null) return;
+    final bytes = await x.readAsBytes();
+    if (mounted) setState(() => _photos.add(bytes));
+  }
+
+  Future<void> _publish() async {
+    final store = context.store;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _publishing = true);
+    final days = _harvest == null
+        ? 0
+        : _harvest!.difference(DateTime.now()).inDays.clamp(0, 120);
+    var urls = <String>[];
+    try {
+      if (store.live) {
+        for (var i = 0; i < _photos.length; i++) {
+          final name =
+              'listing_${DateTime.now().millisecondsSinceEpoch}_$i.jpg';
+          urls.add(await Backend.I.uploadListingPhoto(name, _photos[i]));
+        }
+      }
+      final (plat, plng) = await store.currentLatLng();
       store.addListing(
         crop: _crop!,
         qty: double.tryParse(_qty.text) ?? 0,
@@ -78,12 +105,19 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
         organic: _organic,
         price: _priceNum,
         harvestInDays: days,
+        photos: urls,
+        lat: plat,
+        lng: plng,
       );
-      setState(() => _done = true);
-      return;
+      if (mounted) setState(() => _done = true);
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        backgroundColor: AppColors.danger,
+        behavior: SnackBarBehavior.floating,
+        content: Text('Could not publish: $e'),
+      ));
+      if (mounted) setState(() => _publishing = false);
     }
-    setState(() => _step++);
-    _scroll.jumpTo(0);
   }
 
   void _back() {
@@ -191,11 +225,8 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
           onOrganic: () => setState(() => _organic = !_organic),
         ),
       3 => _StepPhotos(
-          crop: _crop!,
           photos: _photos,
-          onAdd: () => setState(() {
-            if (_photos.length < 3) _photos.add(_crop!.emoji);
-          }),
+          onAdd: _photos.length < 3 ? _pickPhoto : null,
           onRemove: (i) => setState(() => _photos.removeAt(i)),
         ),
       4 => _StepPrice(
@@ -246,8 +277,8 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
           ],
           Expanded(
             child: _last
-                ? AppButton.accent('Publish listing',
-                    onPressed: _canNext ? _next : null)
+                ? AppButton.accent(_publishing ? 'Publishing…' : 'Publish listing',
+                    onPressed: (_canNext && !_publishing) ? _publish : null)
                 : AppButton.primary('Continue',
                     onPressed: _canNext ? _next : null),
           ),
@@ -664,14 +695,12 @@ class _OrganicToggle extends StatelessWidget {
 
 class _StepPhotos extends StatelessWidget {
   const _StepPhotos({
-    required this.crop,
     required this.photos,
     required this.onAdd,
     required this.onRemove,
   });
-  final Crop crop;
-  final List<String> photos;
-  final VoidCallback onAdd;
+  final List<Uint8List> photos;
+  final VoidCallback? onAdd;
   final ValueChanged<int> onRemove;
 
   @override
@@ -690,8 +719,8 @@ class _StepPhotos extends StatelessWidget {
             crossAxisSpacing: Insets.s3,
             children: [
               for (var i = 0; i < photos.length; i++)
-                _PhotoTile(emoji: photos[i], onRemove: () => onRemove(i)),
-              if (photos.length < 3) _AddPhoto(onTap: onAdd),
+                _PhotoTile(bytes: photos[i], onRemove: () => onRemove(i)),
+              if (onAdd != null) _AddPhoto(onTap: onAdd!),
             ],
           ),
         ],
@@ -701,20 +730,17 @@ class _StepPhotos extends StatelessWidget {
 }
 
 class _PhotoTile extends StatelessWidget {
-  const _PhotoTile({required this.emoji, required this.onRemove});
-  final String emoji;
+  const _PhotoTile({required this.bytes, required this.onRemove});
+  final Uint8List bytes;
   final VoidCallback onRemove;
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.surface2,
-            borderRadius: BorderRadius.circular(Radii.md),
-          ),
-          alignment: Alignment.center,
-          child: Text(emoji, style: const TextStyle(fontSize: 36)),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(Radii.md),
+          child: Image.memory(bytes,
+              fit: BoxFit.cover, width: double.infinity, height: double.infinity),
         ),
         Positioned(
           top: 4,
@@ -746,7 +772,7 @@ class _AddPhoto extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.photo_camera_outlined, size: 26, color: AppColors.muted),
+            Icon(Icons.add_a_photo_outlined, size: 26, color: AppColors.muted),
             SizedBox(height: 4),
             Text('Add photo',
                 style: TextStyle(
