@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:openmandi_ui/openmandi_ui.dart';
 
-import '../widgets/wallet_card.dart';
+import 'category_screens.dart';
 import 'my_listing_screen.dart';
 
+// Home category buttons → each opens a dedicated page.
 enum _Cat { all, live, offers, sold }
 
 extension on _Cat {
@@ -19,11 +20,11 @@ extension on _Cat {
         _Cat.offers => Icons.local_offer_outlined,
         _Cat.sold => Icons.check_circle_outline,
       };
-  bool test(Listing l) => switch (this) {
-        _Cat.all => true,
-        _Cat.live => l.status == ListingStatus.live,
-        _Cat.offers => l.status == ListingStatus.offers,
-        _Cat.sold => l.status == ListingStatus.sold,
+  FarmerView get view => switch (this) {
+        _Cat.all => FarmerView.all,
+        _Cat.live => FarmerView.live,
+        _Cat.offers => FarmerView.offers,
+        _Cat.sold => FarmerView.sold,
       };
 }
 
@@ -35,8 +36,13 @@ class HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<HomeTab> {
-  int _cat = 0;
   String _query = '';
+
+  void _openCategory(BuildContext context, _Cat cat) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => farmerCategoryPage(cat.view)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,9 +52,7 @@ class _HomeTabState extends State<HomeTab> {
       body: ListenableBuilder(
         listenable: store,
         builder: (context, _) {
-          final cat = _Cat.values[_cat];
           final listings = store.myListings
-              .where(cat.test)
               .where((l) =>
                   _query.isEmpty ||
                   l.crop.toLowerCase().contains(_query.toLowerCase()))
@@ -57,12 +61,13 @@ class _HomeTabState extends State<HomeTab> {
           return Column(
             children: [
               MarketHeader(
-                title: '${store.getTranslated('farmer_label')}: ${store.userName.isEmpty ? 'farmer' : store.userName}',
+                title:
+                    '${store.getTranslated('farmer_label')}: ${store.userName.isEmpty ? 'farmer' : store.userName}',
                 subtitle: store.getTranslated('live_mandi_subtitle'),
                 searchHint: store.getTranslated('search_produce'),
                 onSearchChanged: (v) => setState(() => _query = v),
-                selected: _cat,
-                onCategory: (i) => setState(() => _cat = i),
+                selected: -1, // chips act as navigation, not a filter
+                onCategory: (i) => _openCategory(context, _Cat.values[i]),
                 categories: [
                   for (final c in _Cat.values) MarketCategory(c.icon, c.label(store)),
                 ],
@@ -83,10 +88,7 @@ class _HomeTabState extends State<HomeTab> {
                     padding: EdgeInsets.only(
                         bottom: 96 + MediaQuery.of(context).padding.bottom),
                     children: [
-                      WalletCard(
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                            builder: (_) => const WalletScreen())),
-                      ),
+                      const SizedBox(height: Insets.s2),
                       SectionHeader(
                         title: store.getTranslated('todays_mandi_price'),
                         subtitle: store.getTranslated('mandi_price_subtitle'),
@@ -105,6 +107,8 @@ class _HomeTabState extends State<HomeTab> {
                                 .where((l) => l.status != ListingStatus.sold)
                                 .length
                                 .toString()),
+                        actionLabel: 'See all',
+                        onAction: () => _openCategory(context, _Cat.all),
                       ),
                       if (listings.isEmpty)
                         Padding(
@@ -118,7 +122,7 @@ class _HomeTabState extends State<HomeTab> {
                           padding: const EdgeInsets.symmetric(horizontal: Insets.s4),
                           child: Column(
                             children: [
-                              for (var i = 0; i < listings.length; i++)
+                              for (var i = 0; i < listings.length && i < 4; i++)
                                 Padding(
                                   padding: EdgeInsets.only(
                                       bottom: i == listings.length - 1 ? 0 : Insets.s3),
@@ -160,7 +164,8 @@ class _Activity extends StatelessWidget {
     if (items.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: Insets.s4, vertical: Insets.s3),
-        child: Text(store.getTranslated('no_activity'), style: const TextStyle(color: AppColors.muted)),
+        child: Text(store.getTranslated('no_activity'),
+            style: const TextStyle(color: AppColors.muted)),
       );
     }
     return Padding(
@@ -187,7 +192,9 @@ class _Activity extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: Insets.s3, horizontal: 2),
         decoration: BoxDecoration(
-          border: last ? null : const Border(bottom: BorderSide(color: AppColors.line)),
+          border: last
+              ? null
+              : const Border(bottom: BorderSide(color: AppColors.line)),
         ),
         child: Row(
           children: [
@@ -205,7 +212,8 @@ class _Activity extends StatelessWidget {
                   Text(n.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w600)),
                   Text(n.body,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

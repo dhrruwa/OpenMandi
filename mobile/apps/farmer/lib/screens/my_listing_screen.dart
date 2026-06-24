@@ -200,7 +200,7 @@ class _OfferCard extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: const BoxDecoration(
                     color: AppColors.accentTint, shape: BoxShape.circle),
-                child: Text(o.party[0],
+                child: Text(o.party.isNotEmpty ? o.party[0].toUpperCase() : 'D',
                     style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         color: AppColors.accentPress)),

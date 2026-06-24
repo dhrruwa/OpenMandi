@@ -201,7 +201,7 @@ class ListingDetailScreen extends StatelessWidget {
             alignment: Alignment.center,
             decoration: const BoxDecoration(
                 color: AppColors.primaryTint, shape: BoxShape.circle),
-            child: Text(s.name[0],
+            child: Text(s.name.isNotEmpty ? s.name[0].toUpperCase() : 'F',
                 style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,

@@ -814,7 +814,9 @@ class Backend {
       offers: (r['offers'] ?? 0) as int,
       views: (r['views'] ?? 0) as int,
       seller: Seller(
-        name: (s?['full_name'] ?? 'Farmer') as String,
+        name: ((s?['full_name'] as String?)?.trim().isNotEmpty ?? false)
+            ? s!['full_name'] as String
+            : 'Farmer',
         village: (r['village'] ?? s?['village'] ?? 'Kolar') as String,
         rating: ((s?['avg_rating'] ?? 0) as num).toDouble(),
         deals: (s?['rating_count'] ?? 0) as int,

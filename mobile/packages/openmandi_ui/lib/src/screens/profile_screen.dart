@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../backend/config.dart';
 import '../store/app_store.dart';
@@ -98,57 +99,60 @@ class ProfileScreen extends StatelessWidget {
       padding: const EdgeInsets.all(Insets.s4),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(Insets.s4),
-            decoration: BoxDecoration(
-              color: verified ? AppColors.okTint : AppColors.warnTint,
-              borderRadius: BorderRadius.circular(Radii.md),
-            ),
-            child: Row(
-              children: [
-                Icon(verified ? Icons.verified : Icons.pending,
-                    color: verified ? AppColors.ok : AppColors.warnInk),
-                const SizedBox(width: Insets.s3),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(verified
-                          ? '${store.isFarmer ? 'PAN' : 'GST'} verified'
-                          : 'Verification pending',
-                          style: const TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w700)),
-                      Text(verified
-                          ? 'Your account is fully verified.'
-                          : 'Finish KYC to unlock all features.',
-                          style: const TextStyle(
-                              fontSize: 13, color: AppColors.muted)),
-                    ],
+          // Farmer: auto-generated unique ID. Dealer: KYC status.
+          if (store.isFarmer)
+            _idCard(context, store)
+          else
+            Container(
+              padding: const EdgeInsets.all(Insets.s4),
+              decoration: BoxDecoration(
+                color: verified ? AppColors.okTint : AppColors.warnTint,
+                borderRadius: BorderRadius.circular(Radii.md),
+              ),
+              child: Row(
+                children: [
+                  Icon(verified ? Icons.verified : Icons.pending,
+                      color: verified ? AppColors.ok : AppColors.warnInk),
+                  const SizedBox(width: Insets.s3),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(verified ? 'GST verified' : 'Verification pending',
+                            style: const TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.w700)),
+                        Text(
+                            verified
+                                ? 'Your account is fully verified.'
+                                : 'Finish KYC to unlock all features.',
+                            style: const TextStyle(
+                                fontSize: 13, color: AppColors.muted)),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
           const SizedBox(height: Insets.s4),
-          _group([
-            _row(context, Icons.account_balance_wallet_outlined,
-                store.isFarmer ? 'Wallet & payouts' : 'Wallet & payments',
-                () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const WalletScreen()))),
-            if (store.isFarmer)
-              _row(context, Icons.account_balance, 'Bank / UPI for payouts',
-                  () => _soon(context)),
-            if (!store.isFarmer && AppConfig.locationEnabled)
-              _row(context, Icons.location_on_outlined, 'Preferred Locations',
+          // Dealer-only group (wallet / searches / KYC). Farmers don't have
+          // wallet, KYC or location for now.
+          if (!store.isFarmer) ...[
+            _group([
+              _row(context, Icons.account_balance_wallet_outlined,
+                  'Wallet & payments',
                   () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const PreferredLocationsScreen()))),
-            if (!store.isFarmer)
+                      builder: (_) => const WalletScreen()))),
+              if (AppConfig.locationEnabled)
+                _row(context, Icons.location_on_outlined, 'Preferred Locations',
+                    () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const PreferredLocationsScreen()))),
               _row(context, Icons.bookmark_border, 'Saved searches & alerts',
                   () => _soon(context)),
-            _row(context, Icons.workspace_premium_outlined, 'KYC documents',
-                () => _soon(context)),
-          ]),
-          const SizedBox(height: Insets.s4),
+              _row(context, Icons.workspace_premium_outlined, 'KYC documents',
+                  () => _soon(context)),
+            ]),
+            const SizedBox(height: Insets.s4),
+          ],
           _group([
             _switchRow(Icons.translate, store.getTranslated('language_settings'), store.language, [
               'English',
@@ -178,6 +182,49 @@ class ProfileScreen extends StatelessWidget {
                 danger: true),
           ]),
           const SizedBox(height: Insets.s10),
+        ],
+      ),
+    );
+  }
+
+  Widget _idCard(BuildContext context, AppStore store) {
+    final id = store.publicUserId;
+    return Container(
+      padding: const EdgeInsets.all(Insets.s4),
+      decoration: BoxDecoration(
+        color: AppColors.primaryTint,
+        borderRadius: BorderRadius.circular(Radii.md),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.badge_outlined, color: AppColors.primary),
+          const SizedBox(width: Insets.s3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Your Farmer ID',
+                    style: TextStyle(fontSize: 13, color: AppColors.muted)),
+                Text(id,
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: AppColors.primaryPress)),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Copy',
+            icon: const Icon(Icons.copy, size: 18, color: AppColors.primary),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: id));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Farmer ID copied'),
+                behavior: SnackBarBehavior.floating,
+              ));
+            },
+          ),
         ],
       ),
     );
