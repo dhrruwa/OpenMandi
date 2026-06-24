@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../store/app_store.dart';
 import '../models/trade.dart';
 import '../theme/colors.dart';
+import '../theme/elevation.dart';
 import '../theme/spacing.dart';
 import '../widgets/buttons.dart';
 import '../widgets/money.dart';
@@ -57,28 +58,36 @@ class WalletScreen extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppColors.primary, AppColors.primaryPress],
+          colors: [AppColors.primaryBright, AppColors.primaryPress],
         ),
         borderRadius: BorderRadius.circular(Radii.md),
+        boxShadow: Shadows.md,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Available balance',
-              style: TextStyle(fontSize: 13, color: Color(0xCCFBFCF9))),
-          Text(inr(store.wallet),
-              style: const TextStyle(
-                  fontSize: 34,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                  color: AppColors.onPrimary,
-                  fontFeatures: [FontFeature.tabularFigures()])),
+              style: TextStyle(fontSize: 13, color: AppColors.onPrimary70)),
+          TweenAnimationBuilder<int>(
+            tween: IntTween(begin: 0, end: store.wallet),
+            duration: MediaQuery.of(context).disableAnimations
+                ? Duration.zero
+                : Motion.slow,
+            curve: Curves.easeOutCubic,
+            builder: (_, v, __) => Text(inr(v),
+                style: const TextStyle(
+                    fontSize: 34,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                    color: AppColors.onPrimary,
+                    fontFeatures: [FontFeature.tabularFigures()])),
+          ),
           const SizedBox(height: Insets.s2),
           Container(
             padding: const EdgeInsets.symmetric(
                 horizontal: Insets.s3, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0x29FBFCF9),
+              color: AppColors.onPrimaryFaint,
               borderRadius: BorderRadius.circular(Radii.pill),
             ),
             child: Row(

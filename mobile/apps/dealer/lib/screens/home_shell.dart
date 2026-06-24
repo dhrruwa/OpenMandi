@@ -66,15 +66,17 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final reduce = MediaQuery.of(context).disableAnimations;
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.bg,
         border: Border(top: BorderSide(color: AppColors.line)),
+        boxShadow: Shadows.up,
       ),
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 64,
+          height: 66,
           child: Row(
             children: [
               for (var i = 0; i < items.length; i++)
@@ -84,34 +86,48 @@ class _BottomNav extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Icon(index == i ? items[i].$2 : items[i].$1,
-                                size: 23,
-                                color: index == i
-                                    ? AppColors.primary
-                                    : AppColors.muted),
-                            if ((i == 2 && orderBadge > 0) ||
-                                (i == 3 && chatBadge > 0))
-                              Positioned(
-                                right: -6,
-                                top: -4,
-                                child: Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                      color: AppColors.accent,
-                                      shape: BoxShape.circle),
+                        AnimatedContainer(
+                          duration: reduce ? Duration.zero : Motion.base,
+                          curve: const Cubic(0.22, 1, 0.36, 1),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: index == i
+                                ? AppColors.primaryTint
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(Radii.pill),
+                          ),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Icon(index == i ? items[i].$2 : items[i].$1,
+                                  size: 23,
+                                  color: index == i
+                                      ? AppColors.primary
+                                      : AppColors.muted),
+                              if ((i == 2 && orderBadge > 0) ||
+                                  (i == 3 && chatBadge > 0))
+                                Positioned(
+                                  right: -6,
+                                  top: -4,
+                                  child: Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: const BoxDecoration(
+                                        color: AppColors.accent,
+                                        shape: BoxShape.circle),
+                                  ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 3),
                         Text(items[i].$3,
                             style: TextStyle(
                                 fontSize: 10.5,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: index == i
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
                                 color: index == i
                                     ? AppColors.primary
                                     : AppColors.muted)),

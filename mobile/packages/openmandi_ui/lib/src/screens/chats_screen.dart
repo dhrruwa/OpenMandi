@@ -6,6 +6,7 @@ import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../widgets/crop_avatar.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/skeleton.dart';
 import '../widgets/tappable.dart';
 import 'chat_thread_screen.dart';
 
@@ -26,6 +27,13 @@ class ChatsScreen extends StatelessWidget {
       body: ListenableBuilder(
         listenable: store,
         builder: (context, _) {
+          if (store.loading && store.threads.isEmpty) {
+            return SkeletonList(
+              count: 7,
+              separator: const SizedBox(height: Insets.s1),
+              itemBuilder: (_) => const ChatRowSkeleton(),
+            );
+          }
           if (store.threads.isEmpty) {
             return const EmptyState(
               icon: Icons.chat_bubble_outline,

@@ -77,10 +77,7 @@ class _ListProduceFab extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.accent,
             borderRadius: BorderRadius.circular(Radii.pill),
-            boxShadow: const [
-              BoxShadow(
-                  color: Color(0x33B15300), blurRadius: 20, offset: Offset(0, 6)),
-            ],
+            boxShadow: Shadows.accent,
           ),
           child: const Row(
             mainAxisSize: MainAxisSize.min,
@@ -116,11 +113,12 @@ class _BottomNav extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.bg,
         border: Border(top: BorderSide(color: AppColors.line)),
+        boxShadow: Shadows.up,
       ),
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 64,
+          height: 66,
           child: Row(
             children: [
               for (var i = 0; i < _FarmerShellState._tabs.length; i++)
@@ -160,32 +158,44 @@ class _Tab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = active ? AppColors.primary : AppColors.muted;
+    final reduce = MediaQuery.of(context).disableAnimations;
     return InkWell(
       onTap: onTap,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Icon(icon, size: 23, color: color),
-              if (badge > 0)
-                Positioned(
-                  right: -6,
-                  top: -4,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                        color: AppColors.accent, shape: BoxShape.circle),
+          AnimatedContainer(
+            duration: reduce ? Duration.zero : Motion.base,
+            curve: const Cubic(0.22, 1, 0.36, 1),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+            decoration: BoxDecoration(
+              color: active ? AppColors.primaryTint : Colors.transparent,
+              borderRadius: BorderRadius.circular(Radii.pill),
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(icon, size: 23, color: color),
+                if (badge > 0)
+                  Positioned(
+                    right: -6,
+                    top: -4,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                          color: AppColors.accent, shape: BoxShape.circle),
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 3),
           Text(label,
               style: TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w500, color: color)),
+                  fontSize: 11,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                  color: color)),
         ],
       ),
     );

@@ -110,7 +110,18 @@ class _HomeTabState extends State<HomeTab> {
                         actionLabel: 'See all',
                         onAction: () => _openCategory(context, _Cat.all),
                       ),
-                      if (listings.isEmpty)
+                      if (store.loading)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: Insets.s4),
+                          child: Column(
+                            children: [
+                              ListingCardSkeleton(),
+                              SizedBox(height: Insets.s3),
+                              ListingCardSkeleton(),
+                            ],
+                          ),
+                        )
+                      else if (listings.isEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(
                               horizontal: Insets.s4, vertical: Insets.s4),

@@ -4,7 +4,9 @@ import '../models/models.dart';
 import '../store/app_store.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
+import '../widgets/app_card.dart';
 import '../widgets/money.dart';
+import '../widgets/skeleton.dart';
 
 /// Full mandi price board with a simple sparkline trend per crop.
 class PricesScreen extends StatelessWidget {
@@ -32,12 +34,14 @@ class PricesScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(Insets.s4),
-        itemCount: context.store.prices.length,
-        separatorBuilder: (_, __) => const SizedBox(height: Insets.s3),
-        itemBuilder: (context, i) => _PriceRow(context.store.prices[i]),
-      ),
+      body: context.store.loading && context.store.prices.isEmpty
+          ? SkeletonList(count: 8, itemBuilder: (_) => const PriceCardSkeleton())
+          : ListView.separated(
+              padding: const EdgeInsets.all(Insets.s4),
+              itemCount: context.store.prices.length,
+              separatorBuilder: (_, __) => const SizedBox(height: Insets.s3),
+              itemBuilder: (context, i) => _PriceRow(context.store.prices[i]),
+            ),
     );
   }
 }
@@ -50,13 +54,8 @@ class _PriceRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final up = m.up;
     final color = up ? AppColors.ok : AppColors.danger;
-    return Container(
+    return AppCard(
       padding: const EdgeInsets.all(Insets.s4),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(Radii.md),
-        border: Border.all(color: AppColors.line),
-      ),
       child: Row(
         children: [
           Text(m.emoji, style: const TextStyle(fontSize: 30)),

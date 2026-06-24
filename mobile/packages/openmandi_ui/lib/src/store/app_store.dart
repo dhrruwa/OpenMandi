@@ -112,6 +112,11 @@ class AppStore extends ChangeNotifier {
 
   bool _reloading = false;
   bool _reloadAgain = false;
+  bool _hasLoadedOnce = false;
+
+  /// True only during the very first load, so screens can show skeletons
+  /// without flashing them on every pull-to-refresh.
+  bool get loading => _reloading && !_hasLoadedOnce;
 
   Future<void> reloadAll() async {
     // coalesce bursts of realtime events into at most one in-flight reload
@@ -274,6 +279,7 @@ class AppStore extends ChangeNotifier {
       lastError = '$e';
     } finally {
       _reloading = false;
+      _hasLoadedOnce = true;
     }
     notifyListeners();
     if (_reloadAgain) {

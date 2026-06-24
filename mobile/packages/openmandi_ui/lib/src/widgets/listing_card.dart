@@ -3,11 +3,12 @@ import '../backend/config.dart';
 import '../models/models.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
+import '../theme/typography.dart';
 import '../store/app_store.dart';
+import 'app_card.dart';
 import 'chips.dart';
 import 'money.dart';
 import 'produce_image.dart';
-import 'tappable.dart';
 
 /// Listing card used by both apps. [showSeller] swaps the farmer-side meta
 /// (views / harvest / location) for dealer-side meta (seller, rating, distance).
@@ -28,36 +29,55 @@ class ListingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = listing;
-    final vsColor = l.overMarket ? AppColors.ok : AppColors.accentPress;
 
-    return Tappable(
+    return AppCard(
       onTap: onTap,
+      padding: EdgeInsets.zero,
+      clip: true,
       semanticLabel:
           '${l.crop}, ${l.qty} ${l.unit.label}, grade ${l.grade.label}, ${inr(l.price)} per quintal',
-      child: Container(
-        padding: const EdgeInsets.all(Insets.s3),
-        decoration: BoxDecoration(
-          color: AppColors.bg,
-          borderRadius: BorderRadius.circular(Radii.md),
-          border: Border.all(color: AppColors.line),
-        ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ProduceImage(l.crop, imageUrl: l.photoUrl, size: 74, organic: l.organic),
-              const SizedBox(width: Insets.s3),
-              Expanded(child: _body(context, vsColor)),
-              const SizedBox(width: Insets.s2),
-              _trailing(),
-            ],
-          ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: 104,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: ProduceImage(l.crop,
+                        imageUrl: l.photoUrl,
+                        width: 104,
+                        height: double.infinity,
+                        radius: 0,
+                        organic: l.organic),
+                  ),
+                  Positioned(
+                    top: Insets.s2,
+                    left: Insets.s2,
+                    child: trailing ?? StatusPill(listing),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    Insets.s3, Insets.s3, Insets.s3, Insets.s3),
+                child: _body(context),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.only(right: Insets.s2),
+              child: Icon(Icons.chevron_right, size: 18, color: AppColors.muted),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _body(BuildContext context, Color vsColor) {
+  Widget _body(BuildContext context) {
     final l = listing;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,47 +85,55 @@ class ListingCard extends StatelessWidget {
         Row(
           children: [
             Flexible(
-              child: Text(
-                l.crop,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
+              child: Text(l.crop,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.section),
             ),
-            const SizedBox(width: Insets.s2),
-            Text('${_qty(l.qty)} ${l.unit.label}',
-                style: const TextStyle(fontSize: 13, color: AppColors.muted)),
             const SizedBox(width: Insets.s2),
             GradeChip(l.grade),
           ],
         ),
+        const SizedBox(height: 2),
+        Text('${_qty(l.qty)} ${l.unit.label}', style: AppText.label),
         const Spacer(),
         Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(inr(l.price),
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                )),
+            Text(inr(l.price), style: AppText.price.copyWith(fontSize: 19)),
             const SizedBox(width: 3),
-            const Text('/qtl',
-                style: TextStyle(fontSize: 12, color: AppColors.muted)),
+            const Text('/qtl', style: AppText.label),
             const SizedBox(width: Insets.s2),
-            Flexible(
-              child: Text(
-                '${l.overMarket ? '▲' : '▼'} ${inr(l.vsMarket)} vs mandi',
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.w600, color: vsColor),
-              ),
-            ),
+            Flexible(child: _vsMandiPill()),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: Insets.s2),
         showSeller ? _sellerMeta(context) : _ownMeta(),
       ],
+    );
+  }
+
+  Widget _vsMandiPill() {
+    final l = listing;
+    final up = l.overMarket;
+    final fg = up ? AppColors.ok : AppColors.accentPress;
+    final bg = up ? AppColors.okTint : AppColors.accentTint;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(Radii.pill)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(up ? Icons.arrow_upward : Icons.arrow_downward, size: 11, color: fg),
+          const SizedBox(width: 2),
+          Flexible(
+            child: Text('${inr(l.vsMarket)} vs mandi',
+                overflow: TextOverflow.ellipsis,
+                style: AppText.labelStrong.copyWith(color: fg)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -174,17 +202,6 @@ class ListingCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 12, color: AppColors.muted)),
         ),
-      ],
-    );
-  }
-
-  Widget _trailing() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        trailing ?? StatusPill(listing),
-        const Icon(Icons.chevron_right, size: 18, color: AppColors.muted),
       ],
     );
   }

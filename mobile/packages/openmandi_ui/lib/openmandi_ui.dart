@@ -4,6 +4,8 @@ library openmandi_ui;
 
 export 'src/theme/colors.dart';
 export 'src/theme/spacing.dart';
+export 'src/theme/elevation.dart';
+export 'src/theme/typography.dart';
 export 'src/theme/app_theme.dart';
 
 export 'src/models/models.dart';
@@ -17,6 +19,9 @@ export 'src/backend/backend.dart';
 export 'src/widgets/money.dart';
 export 'src/widgets/tappable.dart';
 export 'src/widgets/reveal.dart';
+export 'src/widgets/app_card.dart';
+export 'src/widgets/app_divider.dart';
+export 'src/widgets/skeleton.dart';
 export 'src/widgets/buttons.dart';
 export 'src/widgets/chips.dart';
 export 'src/widgets/crop_avatar.dart';

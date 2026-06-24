@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'colors.dart';
 import 'spacing.dart';
+import 'typography.dart';
 
 /// Single source of truth for the OpenMandi look. Light-mode only (v1):
 /// outdoor sunlight legibility beats a dark theme for rural field use.
@@ -49,6 +50,18 @@ abstract final class AppTheme {
           TargetPlatform.android: _FadeUpTransitions(),
           TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
         },
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
+        surfaceTintColor: AppColors.primary,
+        elevation: 0,
+        scrolledUnderElevation: 3,
+        shadowColor: const Color(0x331C2117),
+        centerTitle: false,
+        titleTextStyle: AppText.section.copyWith(
+            color: AppColors.onPrimary, fontSize: 18, fontWeight: FontWeight.w700),
+        iconTheme: const IconThemeData(color: AppColors.onPrimary),
       ),
       dividerTheme: const DividerThemeData(
         color: AppColors.line,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
+import '../theme/elevation.dart';
 import '../theme/spacing.dart';
+import '../theme/typography.dart';
 
 class MarketCategory {
   const MarketCategory(this.icon, this.label);
@@ -38,14 +40,15 @@ class MarketHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final top = MediaQuery.of(context).padding.top;
     return Container(
-      padding: EdgeInsets.only(top: top + 12, bottom: Insets.s3),
+      padding: EdgeInsets.only(top: top + 12, bottom: Insets.s4),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF6A7D14), AppColors.primary],
+          colors: [AppColors.primaryBright, AppColors.primary],
         ),
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.lg)),
+        boxShadow: Shadows.md,
       ),
       child: Column(
         children: [
@@ -59,24 +62,19 @@ class MarketHeader extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(title,
-                          style: const TextStyle(
-                              fontSize: 22,
-                              height: 1.1,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.5,
-                              color: AppColors.onPrimary)),
+                          style: AppText.title.copyWith(color: AppColors.onPrimary)),
                       const SizedBox(height: 2),
                       Row(
                         children: [
                           const Icon(Icons.location_on,
-                              size: 14, color: Color(0xCCFBFCF9)),
+                              size: 14, color: AppColors.onPrimary70),
                           const SizedBox(width: 2),
                           Flexible(
                             child: Text(subtitle,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                    fontSize: 13, color: Color(0xE6FBFCF9))),
+                                    fontSize: 13, color: AppColors.onPrimary90)),
                           ),
                         ],
                       ),
@@ -94,6 +92,8 @@ class MarketHeader extends StatelessWidget {
             child: Material(
               color: AppColors.bg,
               borderRadius: BorderRadius.circular(Radii.md),
+              elevation: 2,
+              shadowColor: const Color(0x331C2117),
               child: TextField(
                 onChanged: onSearchChanged,
                 onTap: onSearchTap,
@@ -170,7 +170,7 @@ class _CategoryChip extends StatelessWidget {
             width: 29,
             height: 29,
             decoration: BoxDecoration(
-              color: selected ? AppColors.onPrimary : const Color(0x29FBFCF9),
+              color: selected ? AppColors.onPrimary : AppColors.onPrimaryFaint,
               borderRadius: BorderRadius.circular(Radii.sm),
               border: Border.all(
                   color: selected ? AppColors.onPrimary : Colors.transparent),

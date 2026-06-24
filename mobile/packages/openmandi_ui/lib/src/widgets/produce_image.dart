@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
+import 'skeleton.dart';
 
 /// Builds a stable, crop-name-keyed photo URL. Images are fetched live at
 /// runtime keyed by crop name (LoremFlickr keyword search). `lock` makes the
@@ -57,7 +58,7 @@ class ProduceImage extends StatelessWidget {
         gaplessPlayback: true,
         loadingBuilder: (context, child, progress) {
           if (progress == null) return child;
-          return _Shimmer(width: w, height: h, radius: radius);
+          return Skeleton(width: w, height: h, radius: radius);
         },
         errorBuilder: (context, _, __) => _Fallback(width: w, height: h, radius: radius),
       ),
@@ -104,59 +105,3 @@ class _Fallback extends StatelessWidget {
   }
 }
 
-class _Shimmer extends StatefulWidget {
-  const _Shimmer({this.width, this.height, required this.radius});
-  final double? width;
-  final double? height;
-  final double radius;
-
-  @override
-  State<_Shimmer> createState() => _ShimmerState();
-}
-
-class _ShimmerState extends State<_Shimmer> with SingleTickerProviderStateMixin {
-  late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))
-        ..repeat();
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final box = BorderRadius.circular(widget.radius);
-    if (MediaQuery.of(context).disableAnimations) {
-      return Container(
-        width: widget.width,
-        height: widget.height,
-        decoration: BoxDecoration(color: AppColors.surface2, borderRadius: box),
-      );
-    }
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (context, _) {
-        final t = _c.value;
-        return Container(
-          width: widget.width,
-          height: widget.height,
-          decoration: BoxDecoration(
-            borderRadius: box,
-            gradient: LinearGradient(
-              begin: Alignment(-1 - t * 2, 0),
-              end: Alignment(1 - t * 2, 0),
-              colors: const [
-                AppColors.surface2,
-                AppColors.surface,
-                AppColors.surface2,
-              ],
-              stops: const [0.25, 0.5, 0.75],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}

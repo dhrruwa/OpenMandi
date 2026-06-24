@@ -98,7 +98,15 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: store.reloadAll,
-                  child: results.isEmpty
+                  child: store.loading
+                      ? ListView.separated(
+                          padding: const EdgeInsets.all(Insets.s4),
+                          itemCount: 6,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: Insets.s3),
+                          itemBuilder: (_, __) => const ListingCardSkeleton(),
+                        )
+                      : results.isEmpty
                       ? ListView(
                           children: const [
                             SizedBox(height: 80),

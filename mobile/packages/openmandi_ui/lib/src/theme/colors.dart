@@ -17,8 +17,13 @@ abstract final class AppColors {
   // brand: olive
   static const primary = Color(0xFF516009);
   static const primaryPress = Color(0xFF414F00);
+  static const primaryBright = Color(0xFF6A7D14); // gradient top
   static const primaryTint = Color(0xFFEEF3E2);
   static const onPrimary = Color(0xFFFBFCF9);
+  // onPrimary at fixed alphas (for text/chips on the brand gradient)
+  static const onPrimary70 = Color(0xB3FBFCF9);
+  static const onPrimary90 = Color(0xE6FBFCF9);
+  static const onPrimaryFaint = Color(0x29FBFCF9);
 
   // accent: terracotta (money / offers)
   static const accent = Color(0xFFC56211);

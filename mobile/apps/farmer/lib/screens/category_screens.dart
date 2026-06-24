@@ -129,13 +129,8 @@ class _OfferCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final o = offer;
     final over = o.price >= o.marketPrice;
-    return Container(
+    return AppCard(
       padding: const EdgeInsets.all(Insets.s4),
-      decoration: BoxDecoration(
-        color: AppColors.bg,
-        borderRadius: BorderRadius.circular(Radii.md),
-        border: Border.all(color: AppColors.line),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -291,13 +286,8 @@ class _ReqCardState extends State<_ReqCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppCard(
       padding: const EdgeInsets.all(Insets.s4),
-      decoration: BoxDecoration(
-        color: AppColors.bg,
-        borderRadius: BorderRadius.circular(Radii.md),
-        border: Border.all(color: AppColors.line),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

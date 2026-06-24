@@ -20,15 +20,16 @@ class OrderStepper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final d = MediaQuery.of(context).disableAnimations ? Duration.zero : Motion.base;
     return Column(
       children: [
         for (var i = 0; i < _stages.length; i++)
-          _row(_stages[i], i, last: i == _stages.length - 1),
+          _row(_stages[i], i, last: i == _stages.length - 1, d: d),
       ],
     );
   }
 
-  Widget _row(OrderStage s, int i, {required bool last}) {
+  Widget _row(OrderStage s, int i, {required bool last, required Duration d}) {
     final done = s.index < stage.index || stage == OrderStage.completed;
     final current = s == stage;
     final reached = s.index <= stage.index;
@@ -40,7 +41,9 @@ class OrderStepper extends StatelessWidget {
         children: [
           Column(
             children: [
-              Container(
+              AnimatedContainer(
+                duration: d,
+                curve: const Cubic(0.22, 1, 0.36, 1),
                 width: 26,
                 height: 26,
                 decoration: BoxDecoration(
@@ -57,7 +60,9 @@ class OrderStepper extends StatelessWidget {
               ),
               if (!last)
                 Expanded(
-                  child: Container(
+                  child: AnimatedContainer(
+                    duration: d,
+                    curve: const Cubic(0.22, 1, 0.36, 1),
                     width: 2,
                     color: s.index < stage.index ? AppColors.primary : AppColors.line,
                   ),
@@ -91,11 +96,14 @@ class OrderProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     const total = 5;
     final reached = (stage.index).clamp(1, total);
+    final d = MediaQuery.of(context).disableAnimations ? Duration.zero : Motion.base;
     return Row(
       children: [
         for (var i = 1; i <= total; i++)
           Expanded(
-            child: Container(
+            child: AnimatedContainer(
+              duration: d,
+              curve: const Cubic(0.22, 1, 0.36, 1),
               height: 4,
               margin: EdgeInsets.only(right: i == total ? 0 : 3),
               decoration: BoxDecoration(

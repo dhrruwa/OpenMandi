@@ -5,13 +5,15 @@ import '../models/trade.dart';
 import '../store/app_store.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
+import '../theme/typography.dart';
+import '../widgets/app_card.dart';
 import '../widgets/chips.dart';
 import '../widgets/crop_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/money.dart';
 import '../widgets/order_stepper.dart';
 import '../widgets/reveal.dart';
-import '../widgets/tappable.dart';
+import '../widgets/skeleton.dart';
 import 'order_detail_screen.dart';
 
 class OrdersScreen extends StatelessWidget {
@@ -30,7 +32,14 @@ class OrdersScreen extends StatelessWidget {
           return CustomScrollView(
             slivers: [
               _bar(store),
-              if (store.orders.isEmpty)
+              if (store.loading)
+                SliverToBoxAdapter(
+                  child: SkeletonList(
+                    count: 5,
+                    itemBuilder: (_) => const OrderCardSkeleton(),
+                  ),
+                )
+              else if (store.orders.isEmpty)
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: EmptyState(
@@ -95,18 +104,11 @@ class OrderTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final o = order;
-    return Tappable(
+    return AppCard(
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => OrderDetailScreen(o)),
       ),
-      child: Container(
-        padding: const EdgeInsets.all(Insets.s3),
-        decoration: BoxDecoration(
-          color: AppColors.bg,
-          borderRadius: BorderRadius.circular(Radii.md),
-          border: Border.all(color: AppColors.line),
-        ),
-        child: Column(
+      child: Column(
           children: [
             Row(
               children: [
@@ -150,7 +152,6 @@ class OrderTile extends StatelessWidget {
             OrderProgressBar(o.stage),
           ],
         ),
-      ),
     );
   }
 
