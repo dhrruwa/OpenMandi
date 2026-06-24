@@ -17,9 +17,15 @@ abstract final class AppConfig {
   /// Google Maps Platform API key.
   static const googleMapsApiKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY');
 
+  /// Master switch for all location features (GPS, location picker, distance,
+  /// "Near me"). Disabled for now. Re-enable by flipping this to true or
+  /// passing --dart-define=LOCATION_ENABLED=true.
+  static const locationEnabled =
+      bool.fromEnvironment('LOCATION_ENABLED', defaultValue: false);
+
   /// True when real Supabase credentials are provided → live mode.
+  /// Accepts both the legacy JWT anon key ("eyJ...") and the newer
+  /// publishable key format ("sb_publishable_...").
   static bool get isLive =>
-      supabaseUrl.isNotEmpty &&
-      supabaseAnonKey.isNotEmpty &&
-      supabaseAnonKey.startsWith('eyJ');
+      supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 }

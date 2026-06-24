@@ -250,6 +250,31 @@ class Backend {
     return r as String;
   }
 
+  /// Open (or reuse) a chat thread between this dealer and a listing's farmer.
+  /// Allowed by RLS since dealer_id = the caller. Returns the thread id.
+  Future<String> startThread(
+      String listingId, String farmerId, String crop, String emoji) async {
+    final existing = await _db
+        .from('threads')
+        .select('id')
+        .eq('listing_id', listingId)
+        .eq('dealer_id', uid!)
+        .maybeSingle();
+    if (existing != null) return existing['id'] as String;
+    final res = await _db
+        .from('threads')
+        .insert({
+          'listing_id': listingId,
+          'farmer_id': farmerId,
+          'dealer_id': uid,
+          'crop_label': crop,
+          'emoji': emoji,
+        })
+        .select('id')
+        .single();
+    return res['id'] as String;
+  }
+
   Future<String> acceptOffer(String offerId) async {
     final r = await _db.rpc('accept_offer', params: {'p_offer': offerId});
     return r as String;
@@ -791,6 +816,7 @@ class Backend {
         verified: (s?['verified'] ?? false) as bool,
       ),
       photos: (r['photos'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      farmerId: (r['farmer_id'] ?? '') as String,
     );
   }
 

@@ -57,9 +57,12 @@ class AppStore extends ChangeNotifier {
 
   bool get live => AppConfig.isLive;
 
-  /// Device coordinates (best-effort; null if unavailable). Mock → null.
+  /// Device coordinates (best-effort; null if unavailable). Returns null when
+  /// location is disabled (no GPS prompt) or in mock mode.
   Future<(double?, double?)> currentLatLng() =>
-      live ? Backend.I.currentLatLng() : Future.value((null, null));
+      (live && AppConfig.locationEnabled)
+          ? Backend.I.currentLatLng()
+          : Future.value((null, null));
 
   // ── bootstrap ─────────────────────────────
   /// Entry point used by main(): live → load from Supabase; else seed mock.
@@ -141,38 +144,45 @@ class AppStore extends ChangeNotifier {
           ..addAll(mine);
       } else {
         final m = await b.loadMarketListings();
-        final (mlat, mlng) = await b.currentLatLng();
-        myLat = mlat;
-        myLng = mlng;
-        final locs = await b.loadPreferredLocations();
-        preferredLocations
-          ..clear()
-          ..addAll(locs);
+        if (AppConfig.locationEnabled) {
+          final (mlat, mlng) = await b.currentLatLng();
+          myLat = mlat;
+          myLng = mlng;
+          final locs = await b.loadPreferredLocations();
+          preferredLocations
+            ..clear()
+            ..addAll(locs);
 
-        final withDist = <Listing>[];
-        for (final l in m) {
-          int? bestDist;
-          if (l.lat != null && l.lng != null) {
-            double? minD;
-            if (preferredLocations.isNotEmpty) {
-              for (final pl in preferredLocations) {
-                final d = await b.getDistanceMatrix(pl.lat, pl.lng, l.lat!, l.lng!);
-                if (d != null && (minD == null || d < minD)) {
-                  minD = d;
+          final withDist = <Listing>[];
+          for (final l in m) {
+            int? bestDist;
+            if (l.lat != null && l.lng != null) {
+              double? minD;
+              if (preferredLocations.isNotEmpty) {
+                for (final pl in preferredLocations) {
+                  final d = await b.getDistanceMatrix(pl.lat, pl.lng, l.lat!, l.lng!);
+                  if (d != null && (minD == null || d < minD)) {
+                    minD = d;
+                  }
                 }
+              } else if (mlat != null && mlng != null) {
+                minD = await b.getDistanceMatrix(mlat, mlng, l.lat!, l.lng!);
               }
-            } else if (mlat != null && mlng != null) {
-              minD = await b.getDistanceMatrix(mlat, mlng, l.lat!, l.lng!);
+              if (minD != null) {
+                bestDist = minD.round();
+              }
             }
-            if (minD != null) {
-              bestDist = minD.round();
-            }
+            withDist.add(bestDist == null ? l : l.withDistanceKm(bestDist));
           }
-          withDist.add(bestDist == null ? l : l.withDistanceKm(bestDist));
+          market
+            ..clear()
+            ..addAll(withDist);
+        } else {
+          // Location disabled: load listings without distance.
+          market
+            ..clear()
+            ..addAll(m);
         }
-        market
-          ..clear()
-          ..addAll(withDist);
       }
       final ords = await b.loadOrders();
       orders
@@ -220,7 +230,14 @@ class AppStore extends ChangeNotifier {
   void _subscribeRealtime() {
     if (_subscribed) return;
     _subscribed = true;
-    for (final table in ['orders', 'notifications', 'messages', 'offers', 'listings']) {
+    for (final table in [
+      'orders',
+      'notifications',
+      'messages',
+      'offers',
+      'listings',
+      'threads',
+    ]) {
       Backend.I.subscribe(table, reloadAll);
     }
   }
@@ -809,6 +826,28 @@ class AppStore extends ChangeNotifier {
   }
 
   Thread threadById(String id) => threads.firstWhere((t) => t.id == id);
+
+  /// Dealer opens (or starts) a chat with a listing's farmer. Returns the
+  /// thread id to navigate to, or null on failure.
+  Future<String?> startChat(Listing l) async {
+    if (live) {
+      try {
+        final tid =
+            await Backend.I.startThread(l.id, l.farmerId, l.crop, l.emoji);
+        await reloadAll();
+        return tid;
+      } catch (e) {
+        lastError = '$e';
+        notifyListeners();
+        return null;
+      }
+    }
+    // mock: ensure a local thread and return its id
+    _ensureThread(l.seller.name, 'Farmer', l.crop, l.emoji, mine: true);
+    return threads
+        .firstWhere((t) => t.name == l.seller.name && t.crop == l.crop)
+        .id;
+  }
 
   void sendMessage(Thread t, String text, {String? audioUrl, String? transcript, String? translatedText}) {
     t.messages.add(Message(

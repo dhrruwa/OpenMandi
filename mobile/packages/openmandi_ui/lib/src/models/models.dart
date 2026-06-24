@@ -76,6 +76,7 @@ class Listing {
     required this.views,
     required this.seller,
     this.photos = const [],
+    this.farmerId = '',
   });
 
   final String id;
@@ -103,6 +104,7 @@ class Listing {
   final int views;
   final Seller seller;
   final List<String> photos; // uploaded photo URLs; first is the cover
+  final String farmerId; // the seller's user id (for starting a chat, live)
 
   String? get photoUrl => photos.isEmpty ? null : photos.first;
   bool get readyNow => harvestInDays == 0;
@@ -133,6 +135,7 @@ class Listing {
         views: views,
         seller: seller,
         photos: photos,
+        farmerId: farmerId,
       );
   bool get overMarket => price >= marketPrice;
   int get vsMarket => (price - marketPrice).abs();

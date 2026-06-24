@@ -30,13 +30,6 @@ class ListingDetailScreen extends StatelessWidget {
                   title: Text(l.crop,
                       style: const TextStyle(
                           fontSize: 17, fontWeight: FontWeight.w600)),
-                  actions: [
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(Icons.bookmark_border),
-                      tooltip: 'Save',
-                    ),
-                  ],
                 ),
                 SliverToBoxAdapter(child: _hero(l)),
                 SliverToBoxAdapter(child: _body(context, l, vsColor)),
@@ -322,7 +315,7 @@ class _ActionBar extends StatelessWidget {
       child: Row(
         children: [
           AppButton.ghost('Chat', icon: Icons.chat_bubble_outline,
-              onPressed: () {}),
+              onPressed: () => _openChat(context)),
           const SizedBox(width: Insets.s3),
           Expanded(
             child: AppButton.accent(
@@ -334,5 +327,20 @@ class _ActionBar extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _openChat(BuildContext context) async {
+    final store = context.store;
+    final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final tid = await store.startChat(listing);
+    if (tid == null) {
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Could not open chat. Try again.'),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+    nav.push(MaterialPageRoute(builder: (_) => ChatThreadScreen(tid)));
   }
 }

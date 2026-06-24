@@ -5,18 +5,21 @@
   "type": "module",
   "description": "OpenMandi Phase-2 secure service: KYC (Aadhaar/GST), Razorpay escrow, mandi-price cron, audit.",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
+    "start": "node --env-file-if-exists=.env dist/index.js",
     "typecheck": "tsc --noEmit",
-    "cron:prices": "tsx src/jobs/ingestPrices.ts"
+    "cron:prices": "tsx --env-file-if-exists=.env src/jobs/ingestPrices.ts"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
+    "@hono/node-server": "^2.0.6",
+    "@supabase/server": "^1.2.0",
+    "@supabase/supabase-js": "^2.108.2",
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "express-rate-limit": "^7.4.0",
     "helmet": "^8.0.0",
+    "hono": "^4.12.27",
     "razorpay": "^2.9.4",
     "zod": "^3.23.8"
   },

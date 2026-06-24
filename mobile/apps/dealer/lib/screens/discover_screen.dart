@@ -49,7 +49,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       body: ListenableBuilder(
         listenable: store,
         builder: (context, _) {
-          final filter = _Filter.values[_cat];
+          // Hide the "Near me" filter while location is disabled.
+          final filters = AppConfig.locationEnabled
+              ? _Filter.values
+              : _Filter.values.where((f) => f != _Filter.near).toList();
+          final safeCat = _cat < filters.length ? _cat : 0;
+          final filter = filters[safeCat];
           final results = store.market
               .where(filter.test)
               .where((l) =>
@@ -60,14 +65,14 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           return Column(
             children: [
               MarketHeader(
-                title: 'Sourcing near',
-                subtitle: 'Bengaluru · ${store.market.length} farmers live',
+                title: 'Discover produce',
+                subtitle: '${store.market.length} farmers selling now',
                 searchHint: 'Search crops — tomato, chilli…',
                 onSearchChanged: (v) => setState(() => _query = v),
-                selected: _cat,
+                selected: safeCat,
                 onCategory: (i) => setState(() => _cat = i),
                 categories: [
-                  for (final f in _Filter.values) MarketCategory(f.icon, f.label),
+                  for (final f in filters) MarketCategory(f.icon, f.label),
                 ],
                 trailing: [
                   IconButton(

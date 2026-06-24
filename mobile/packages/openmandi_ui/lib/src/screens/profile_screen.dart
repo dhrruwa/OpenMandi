@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../backend/config.dart';
 import '../store/app_store.dart';
 import '../models/trade.dart';
 import '../theme/colors.dart';
@@ -138,14 +139,17 @@ class ProfileScreen extends StatelessWidget {
                 () => Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => const WalletScreen()))),
             if (store.isFarmer)
-              _row(context, Icons.account_balance, 'Bank / UPI for payouts', () {}),
-            if (!store.isFarmer)
+              _row(context, Icons.account_balance, 'Bank / UPI for payouts',
+                  () => _soon(context)),
+            if (!store.isFarmer && AppConfig.locationEnabled)
               _row(context, Icons.location_on_outlined, 'Preferred Locations',
                   () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const PreferredLocationsScreen()))),
             if (!store.isFarmer)
-              _row(context, Icons.bookmark_border, 'Saved searches & alerts', () {}),
-            _row(context, Icons.workspace_premium_outlined, 'KYC documents', () {}),
+              _row(context, Icons.bookmark_border, 'Saved searches & alerts',
+                  () => _soon(context)),
+            _row(context, Icons.workspace_premium_outlined, 'KYC documents',
+                () => _soon(context)),
           ]),
           const SizedBox(height: Insets.s4),
           _group([
@@ -167,11 +171,12 @@ class ProfileScreen extends StatelessWidget {
             _toggleRow(Icons.accessibility_new, 'Large-icon mode',
                 'Bigger touch targets & simpler layout', store.largeIcons,
                 store.setLargeIcons),
-            _row(context, Icons.mic_none, 'Voice assistance', () {}),
+            _row(context, Icons.mic_none, 'Voice assistance', () => _soon(context)),
           ]),
           const SizedBox(height: Insets.s4),
           _group([
-            _row(context, Icons.help_outline, 'Help & grievances', () {}),
+            _row(context, Icons.help_outline, 'Help & grievances',
+                () => _soon(context)),
             _row(context, Icons.logout, 'Sign out', () => _signOut(context, store),
                 danger: true),
           ]),
@@ -261,6 +266,13 @@ class ProfileScreen extends StatelessWidget {
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
       subtitle: Text(sub, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
     );
+  }
+
+  void _soon(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Coming soon'),
+      behavior: SnackBarBehavior.floating,
+    ));
   }
 
   void _signOut(BuildContext context, AppStore store) {

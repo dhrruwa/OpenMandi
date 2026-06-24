@@ -17,9 +17,6 @@ class MyListingScreen extends StatelessWidget {
         foregroundColor: AppColors.ink,
         title: Text(listing.crop,
             style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-        actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.edit_outlined)),
-        ],
       ),
       body: ListenableBuilder(
         listenable: store,

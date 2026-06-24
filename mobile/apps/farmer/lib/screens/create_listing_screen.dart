@@ -3,8 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:openmandi_ui/openmandi_ui.dart';
 
-const _steps = ['Crop', 'Quantity', 'Quality', 'Location', 'Photos', 'Price', 'Review'];
-
 class CreateListingSheet extends StatefulWidget {
   const CreateListingSheet({super.key});
 
@@ -55,6 +53,14 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
     super.dispose();
   }
 
+  // Step list is built from the location flag so the Location step is simply
+  // absent when location is disabled (re-enable via AppConfig.locationEnabled).
+  List<String> get _steps => AppConfig.locationEnabled
+      ? const ['Crop', 'Quantity', 'Quality', 'Location', 'Photos', 'Price', 'Review']
+      : const ['Crop', 'Quantity', 'Quality', 'Photos', 'Price', 'Review'];
+
+  String get _stepName => _steps[_step];
+
   int get _market => _crop?.marketPrice ?? 0;
   int get _priceNum => int.tryParse(_price.text) ?? 0;
 
@@ -66,12 +72,17 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
     return 'fair';
   }
 
-  bool get _canNext => switch (_step) {
-        0 => _crop != null,
-        1 => (double.tryParse(_qty.text) ?? 0) > 0 && _harvest != null,
-        2 => _grade != null,
-        3 => _pincode != null && _village != null && _taluk != null && _district != null && _state != null && _country != null,
-        5 => _priceNum > 0,
+  bool get _canNext => switch (_stepName) {
+        'Crop' => _crop != null,
+        'Quantity' => (double.tryParse(_qty.text) ?? 0) > 0 && _harvest != null,
+        'Quality' => _grade != null,
+        'Location' => _pincode != null &&
+            _village != null &&
+            _taluk != null &&
+            _district != null &&
+            _state != null &&
+            _country != null,
+        'Price' => _priceNum > 0,
         _ => true,
       };
 
@@ -222,12 +233,12 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
   }
 
   Widget _stepBody() {
-    return switch (_step) {
-      0 => _StepCrop(
+    return switch (_stepName) {
+      'Crop' => _StepCrop(
           selected: _crop,
           onPick: (c) => setState(() => _crop = c),
         ),
-      1 => _StepQuantity(
+      'Quantity' => _StepQuantity(
           crop: _crop!,
           qty: _qty,
           unit: _unit,
@@ -235,13 +246,13 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
           harvest: _harvest,
           onHarvest: _pickDate,
         ),
-      2 => _StepQuality(
+      'Quality' => _StepQuality(
           grade: _grade,
           onGrade: (g) => setState(() => _grade = g),
           organic: _organic,
           onOrganic: () => setState(() => _organic = !_organic),
         ),
-      3 => LocationPickerWidget(
+      'Location' => LocationPickerWidget(
           initialLat: _lat,
           initialLng: _lng,
           onLocationSelected: ({
@@ -266,12 +277,12 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
             });
           },
         ),
-      4 => _StepPhotos(
+      'Photos' => _StepPhotos(
           photos: _photos,
           onAdd: _photos.length < 3 ? _pickPhoto : null,
           onRemove: (i) => setState(() => _photos.removeAt(i)),
         ),
-      5 => _StepPrice(
+      'Price' => _StepPrice(
           crop: _crop!,
           price: _price,
           verdict: _verdict,
@@ -389,22 +400,7 @@ class _StepCrop extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _StepTitle(
-              'What are you selling?', 'Pick your crop. Tap the mic to say it aloud.'),
-          Tappable(
-            onTap: () {},
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.mic_none, size: 18, color: AppColors.accent),
-                SizedBox(width: 5),
-                Text('Say crop name',
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary)),
-              ],
-            ),
-          ),
+              'What are you selling?', 'Pick your crop.'),
           const SizedBox(height: Insets.s3),
           GridView.count(
             crossAxisCount: 3,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../backend/config.dart';
 import '../models/models.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
@@ -147,8 +148,11 @@ class ListingCard extends StatelessWidget {
         const Icon(Icons.star_rounded, size: 14, color: AppColors.warn),
         Text(' ${s.rating}',
             style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-        const SizedBox(width: Insets.s3),
-        _meta(Icons.near_me_outlined, '${listing.distanceKm} km ${context.store.getTranslated('distance_away')}'),
+        if (AppConfig.locationEnabled) ...[
+          const SizedBox(width: Insets.s3),
+          _meta(Icons.near_me_outlined,
+              '${listing.distanceKm} km ${context.store.getTranslated('distance_away')}'),
+        ],
       ],
     );
   }
