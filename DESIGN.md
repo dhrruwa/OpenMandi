@@ -67,3 +67,28 @@ CSS-only, ease-out-quart. Staggered fade-up on the listing feed (50ms step), she
 ## Accessibility
 
 WCAG 2.1 AA. Body ≥4.5:1 (most ≥7:1). Status = icon + text + color. Focus-visible rings (2px accent). ≥44px targets. Reduced-motion alternatives. Large-icon mode and voice are roadmap; layout leaves room for them.
+
+## Implemented (Flutter)
+
+The spec above is realised as a token system in `mobile/packages/openmandi_ui/lib/src/theme/`
+and consumed by both apps:
+
+- **`colors.dart`** — the OKLCH palette converted to sRGB `AppColors` tokens
+  (incl. `onPrimary70/90/Faint` alphas for text on the brand gradient).
+- **`spacing.dart`** — `Insets` (4px scale), `Radii` (sm 8 / md 14 / lg 20 / pill),
+  `Motion` (fast 140 / base 240 / slow 420 ms).
+- **`typography.dart`** — `AppText` styles (`display/title/section/body/label/price`),
+  Hanken Grotesk, tabular figures on numerics.
+- **`elevation.dart`** — `Shadows` (sm/md/lg/up/accent): soft, low-alpha, ink-hued
+  two-layer shadows (not pure black — it looks dirty on the cream UI).
+
+Shared widgets: `AppCard` (the standard elevated surface), `Skeleton` + per-list
+shimmer loaders (gated on `store.loading` so they show only on first load),
+`MarketHeader` (elevated brand gradient + search + category chips), `ListingCard`
+(full-bleed image, status overlay, tinted vs-mandi pill), a richer `EmptyState`
+(composed "medallion"), animated bottom-nav pill, and an app-wide elevated
+`appBarTheme` (shadow on scroll-under). All motion respects
+`MediaQuery.disableAnimations`.
+
+**Maps** use free `flutter_map` + OpenStreetMap/CARTO tiles + Nominatim geocoding
++ local haversine distance — no Google Maps key or billing.

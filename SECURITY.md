@@ -24,9 +24,16 @@ the Aadhaar / DPDP compliance approach.
 - **Order totals are recomputed server-side** on every insert/update — client
   amounts are ignored.
 - The **anon/publishable key** is the only key in the apps (safe; RLS protects
-  data). The **service-role key** lives only in the Express server.
+  data). The **service-role / secret key** lives only in the server `.env`.
 - A safe `profiles_public` view exposes only name + rating for marketplace
   display; the `users` table (phone/email/location) is never world-readable.
+- **Function EXECUTE grants are least-privilege** (`0014_security_hardening.sql`):
+  internal `SECURITY DEFINER` helpers (`notify`, `audit`, `recalc_user_rating`,
+  `dev_autoverify_kyc`) are **not** callable by clients (server/admin only) —
+  they still run inside other definer functions as the owner. The trade RPCs
+  (`make_offer`, `accept_offer`, `counter_offer`, `respond_to_requirement`,
+  order lifecycle) are granted to **authenticated** only (no `anon`/`PUBLIC`),
+  with `auth.uid()` ownership checks inside each.
 
 ## Payments & escrow
 - Razorpay order amounts are read from `orders.total_amount` (server-computed),
@@ -37,9 +44,12 @@ the Aadhaar / DPDP compliance approach.
 
 ## File security
 - `listing-photos`: public read, owner-scoped writes (`<uid>/...`), MIME + size
-  limited.
+  limited. (Listing photos are intentionally public marketplace content.)
 - `kyc-docs`: **private** bucket. Never public. Accessed only via short-lived
   signed URLs; rows readable by owner or admin.
+- `chat-voice`: currently a **public** bucket (demo). **Hardening TODO** before
+  production: make it private and serve voice notes via short-lived signed URLs
+  (or a participant-scoped SELECT policy) so conversations aren't URL-readable.
 
 ## Sensitive data / Aadhaar — compliance-critical
 - We **do not call UIDAI directly**. KYC goes through a UIDAI-licensed provider /
@@ -57,8 +67,9 @@ the Aadhaar / DPDP compliance approach.
 ## Application security
 - Input validation with **zod** on every endpoint; parameterized access via the
   Supabase client (no string-built SQL).
-- **helmet** security headers; strict **CORS allowlist**; HTTPS/TLS + HSTS in
-  production.
+- **helmet** security headers; **CORS allowlist** enforced on the server
+  (`CORS_ORIGINS` env — no wildcard; defaults to localhost dev only); HTTPS/TLS
+  + HSTS in production.
 - **Rate limiting** globally and tighter on `/kyc` (and auth/OTP via Supabase).
 - IDOR prevented by always checking ownership server-side (RLS + explicit checks),
   never trusting client-supplied IDs.
@@ -71,16 +82,32 @@ the Aadhaar / DPDP compliance approach.
 - Dependency/vulnerability scanning belongs in CI (`npm audit`, Dart `pub`).
 
 ## Hardening applied
-- **anon role is locked out of all data** (migration `0008_lock_anon.sql`): an
-  extracted publishable key reads nothing without authenticating; RLS gates
-  authenticated users. Auth/sign-up is unaffected.
+- **anon role is locked out of all data** (`0008_lock_anon.sql`): an extracted
+  publishable key reads nothing without authenticating; RLS gates authenticated
+  users. Auth/sign-up is unaffected.
+- **Least-privilege function grants** (`0014_security_hardening.sql`): client-
+  callable internal helpers and the KYC-bypass RPC are revoked from `PUBLIC`/
+  `anon`/`authenticated` (see Access control above).
+- **Secrets are git-ignored**: `.env*`, `openmandi.env.json`, `*.jks`,
+  `key.properties`, keystores/certs (`.gitignore`). The repo holds no live keys.
+
+## Auth (current dev state)
+- `REQUIRE_LOGIN` defaults to **false** so a demo account auto-logs-in (no login
+  wall) during development. This is **not** production-safe — build with
+  `--dart-define REQUIRE_LOGIN=true` to enforce real auth before release.
 
 ## Go-live: one script + dashboard toggles
-- Run `supabase/production_hardening.sql` to remove the two demo backdoors
-  (email auto-confirm trigger + `dev_autoverify_kyc`).
+- Run `supabase/production_hardening.sql`: removes the demo backdoors (email
+  auto-confirm trigger, `dev_autoverify_kyc`) **and the demo accounts**.
+- **Rotate every credential that was ever shared in chat/logs**: Settings →
+  Database → reset password; Settings → API → roll the **publishable + secret**
+  keys, then update `openmandi.env.json` (publishable) and the server `.env`
+  (secret).
+- Build the apps with `REQUIRE_LOGIN=true`.
+- Make the `chat-voice` bucket private + signed URLs (File security TODO above).
 - Dashboard (cannot be scripted): re-enable **Confirm email**; enable **Attack
-  Protection** (CAPTCHA + leaked-password); raise min password length; **rotate
-  the DB password**. Deploy `server/` over TLS with the secret keys.
+  Protection** (CAPTCHA + leaked-password); raise min password length. Deploy
+  `server/` over TLS with `CORS_ORIGINS` + secret keys set.
 
 ## Demo vs production
 - `dev_autoverify_kyc()` (RPC) auto-verifies KYC for the **demo only** so the

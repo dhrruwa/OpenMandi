@@ -10,7 +10,24 @@ type Env = { Variables: { supabaseContext: SupabaseContext } };
 
 export const app = new Hono<Env>();
 
-app.use("*", cors());
+// Restrict CORS to an explicit allowlist (CORS_ORIGINS, comma-separated).
+// Defaults to localhost dev only — never a wildcard on an authenticated API.
+const allowedOrigins = (process.env.CORS_ORIGINS ??
+  "http://localhost:5173,http://localhost:5179")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  "*",
+  cors({
+    origin: (origin) => (allowedOrigins.includes(origin) ? origin : null),
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowHeaders: ["Authorization", "Content-Type", "apikey"],
+    credentials: true,
+    maxAge: 600,
+  }),
+);
 
 // ── public ────────────────────────────────────────────────
 app.get("/health", (c) =>

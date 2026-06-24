@@ -1,17 +1,22 @@
-# openmandi_farmer
+# OpenMandi — Farmer app
 
-A new Flutter project.
+The farmer-facing Flutter app: list produce against live mandi prices, receive
+and accept/counter dealer offers, respond to buyer requirements, track orders
+through the escrow lifecycle, chat (text + voice), and get rated.
 
-## Getting Started
+Built on the shared **`openmandi_ui`** package (design system, models, store,
+Supabase client). See [`../../README.md`](../../README.md) and
+[`../../../BACKEND_SETUP.md`](../../../BACKEND_SETUP.md).
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Run
+```bash
+flutter pub get
+flutter run                                              # demo mode (no backend)
+flutter run --dart-define-from-file=../../openmandi.env.json   # live (Supabase)
+```
+Release APK:
+```bash
+flutter build apk --release --dart-define-from-file=../../openmandi.env.json
+```
+Add `--dart-define=REQUIRE_LOGIN=true` to enforce real auth (default is a paused
+demo auto-login).

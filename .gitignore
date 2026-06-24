@@ -10,6 +10,17 @@ dist/
 # Environment files
 .env
 .env.*
+openmandi.env.json
+*.env.json
+
+# Secrets / signing material — never commit
+key.properties
+**/key.properties
+*.jks
+*.keystore
+*.p12
+*.pem
+service-account*.json
 
 # OS and editor files
 .DS_Store

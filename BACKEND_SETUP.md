@@ -16,7 +16,10 @@ supabase db push                                  # applies migrations/*.sql
 supabase db execute --file supabase/seed.sql      # crops + mandi prices
 ```
 This creates every table, **RLS on all of them**, storage buckets (public
-listing photos, private KYC), triggers, and the trade RPCs.
+listing photos, private KYC, chat voice), triggers, and the trade RPCs
+(`make_offer`, `accept_offer`, `counter_offer`, `respond_to_requirement`,
+order lifecycle). Migration `0014_security_hardening.sql` locks internal helper
+functions to server/admin only — see SECURITY.md.
 
 ### Enable email OTP
 Supabase dashboard → Authentication → Providers → Email → enable **Email OTP**
@@ -24,25 +27,38 @@ Supabase dashboard → Authentication → Providers → Email → enable **Email
 (Auth → SMTP) or use the built-in dev mailer for testing.
 
 ## 3. Run the apps in live mode
-Pass your credentials as dart-defines (no secrets in source):
+Put your credentials in `mobile/openmandi.env.json` (git-ignored — never commit):
+```json
+{
+  "SUPABASE_URL": "https://YOUR.supabase.co",
+  "SUPABASE_ANON_KEY": "sb_publishable_...",
+  "GOOGLE_MAPS_API_KEY": ""
+}
+```
+`SUPABASE_ANON_KEY` is the **publishable** key (`sb_publishable_...`) — safe on the
+client; RLS protects the data. `GOOGLE_MAPS_API_KEY` can stay empty: maps use free
+OpenStreetMap/CARTO tiles + Nominatim, no Google key needed.
+
+Then run / build with the file:
 ```bash
 cd mobile/apps/farmer
-flutter run -d chrome \
-  --dart-define=SUPABASE_URL=https://YOUR.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=eyJ...anon...
-
-cd ../dealer
-flutter run -d chrome \
-  --dart-define=SUPABASE_URL=https://YOUR.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=eyJ...anon...
+flutter run --dart-define-from-file=../../openmandi.env.json
+# release build:
+flutter build apk --release --dart-define-from-file=../../openmandi.env.json
 ```
-With the defines set, the apps switch to **live mode**: real email-OTP sign-up,
-KYC, listings, search, realtime chat/offers, orders + lifecycle, reviews — shared
-between both apps and persisted. Without them, they stay in demo mode.
+(Same for `apps/dealer`.) With the file set, the apps switch to **live mode**:
+listings, search, realtime chat/offers, **counter-offers**, buy-requirements,
+orders + lifecycle, reviews — shared between both apps and persisted. Without it
+they stay in demo mode.
 
-Walk the loop: sign up a **farmer** (one browser) and a **dealer** (another) →
-farmer lists produce → dealer discovers + makes an offer → farmer accepts → order
-→ lifecycle → review.
+### Auth is paused by default
+For development, `REQUIRE_LOGIN` defaults to **false**: a demo account auto-logs-in
+so there's no login wall. To enforce real auth (and require email OTP / KYC), add
+`--dart-define=REQUIRE_LOGIN=true` to the run/build command.
+
+Walk the loop: a **farmer** lists produce → a **dealer** discovers + makes an offer
+(or counter) → farmer accepts → order → pay → dispatch → confirm → review. Or:
+dealer posts a **buy requirement** → farmer responds with a price → order.
 
 ## 4. (Phase 2) The secure Express service
 Needed only for real Aadhaar/GST eKYC, Razorpay escrow, and the mandi-price cron.
