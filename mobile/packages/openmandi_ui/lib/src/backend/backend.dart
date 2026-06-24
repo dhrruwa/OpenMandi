@@ -540,7 +540,11 @@ class Backend {
   // ── voice message storage ─────────────────────────────────
   Future<String> uploadVoiceMessage(String filename, Uint8List bytes) async {
     final path = '${uid!}/$filename';
-    await _db.storage.from('chat-voice').uploadBinary(path, bytes);
+    await _db.storage.from('chat-voice').uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(contentType: 'audio/mp4', upsert: true),
+        );
     return _db.storage.from('chat-voice').getPublicUrl(path);
   }
 
@@ -714,11 +718,9 @@ class Backend {
   Future<Map<String, String>> transcribeAudio(Uint8List audioBytes) async {
     final key = AppConfig.googleMapsApiKey;
     if (key.isEmpty) {
-      // Offline fallback mock
-      return {
-        'transcript': 'ನನ್ನ ಬಳಿ 500 ಕೆಜಿ ಟೊಮೇಟೊ ಇದೆ',
-        'translatedText': 'I have 500 kg tomatoes available.',
-      };
+      // No speech key configured → no transcript/translation (the voice note
+      // still plays). Avoids showing a fake/incorrect translation.
+      return {'transcript': '', 'translatedText': ''};
     }
     try {
       final base64Audio = base64Encode(audioBytes);

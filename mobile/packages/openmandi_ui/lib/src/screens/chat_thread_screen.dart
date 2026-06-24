@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../store/app_store.dart';
@@ -19,6 +21,8 @@ class ChatThreadScreen extends StatefulWidget {
 class _ChatThreadScreenState extends State<ChatThreadScreen> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
+  Timer? _poll;
+  int _lastCount = -1;
 
   @override
   void initState() {
@@ -26,10 +30,19 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
     _input.addListener(() {
       if (mounted) setState(() {});
     });
+    // Load latest on open, then poll so the other side's messages always
+    // arrive even if a realtime push is missed.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.store.refreshThreads();
+    });
+    _poll = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) context.store.refreshThreads();
+    });
   }
 
   @override
   void dispose() {
+    _poll?.cancel();
     _input.dispose();
     _scroll.dispose();
     super.dispose();
@@ -73,7 +86,12 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
             ),
           );
         }
-        _jump();
+        // Auto-scroll only when a new message actually arrives, not on every
+        // poll/refresh (so the user can scroll up to read history).
+        if (t.messages.length != _lastCount) {
+          _lastCount = t.messages.length;
+          _jump();
+        }
         return Scaffold(
           backgroundColor: AppColors.bg,
           appBar: AppBar(

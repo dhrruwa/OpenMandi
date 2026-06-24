@@ -252,6 +252,21 @@ class AppStore extends ChangeNotifier {
     }
   }
 
+  /// Lightweight refresh of just the chat threads (used to poll an open chat so
+  /// new messages from the other side arrive even if a realtime event is missed).
+  Future<void> refreshThreads() async {
+    if (!live) return;
+    try {
+      final th = await Backend.I.loadThreads();
+      threads
+        ..clear()
+        ..addAll(th);
+      notifyListeners();
+    } catch (_) {
+      // ignore transient errors during polling
+    }
+  }
+
   bool _subscribed = false;
   void _subscribeRealtime() {
     if (_subscribed) return;
