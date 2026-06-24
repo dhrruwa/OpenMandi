@@ -599,9 +599,11 @@ class AppStore extends ChangeNotifier {
       offers.where((o) => o.listingId == listingId && o.status == OfferStatus.pending).toList();
 
   // ── farmer: accept an incoming offer → order ──
-  void acceptOffer(Offer offer) {
+  Future<void> acceptOffer(Offer offer) async {
     if (live) {
-      _live(() => Backend.I.acceptOffer(offer.id));
+      // awaited so failures (already accepted, network) surface to the UI
+      await Backend.I.acceptOffer(offer.id);
+      await reloadAll();
       return;
     }
     offer.status = OfferStatus.accepted;
@@ -854,7 +856,14 @@ class AppStore extends ChangeNotifier {
     }
   }
 
-  Thread threadById(String id) => threads.firstWhere((t) => t.id == id);
+  /// Null-safe lookup — returns null if the thread no longer exists (e.g. it
+  /// was replaced by a realtime refresh) instead of throwing.
+  Thread? threadById(String id) {
+    for (final t in threads) {
+      if (t.id == id) return t;
+    }
+    return null;
+  }
 
   /// Dealer opens (or starts) a chat with a listing's farmer. Returns the
   /// thread id to navigate to, or null on failure.

@@ -184,13 +184,22 @@ class _OfferCard extends StatelessWidget {
               const Spacer(),
               SizedBox(
                 width: 140,
-                child: AppButton.accent('Accept', onPressed: () {
-                  store(context).acceptOffer(o);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('Accepted ${o.party}\'s offer — order created'),
-                    behavior: SnackBarBehavior.floating,
-                    backgroundColor: AppColors.primary,
-                  ));
+                child: AppButton.accent('Accept', onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    await context.store.acceptOffer(o);
+                    messenger.showSnackBar(SnackBar(
+                      content: Text('Accepted ${o.party}\'s offer — order created'),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: AppColors.primary,
+                    ));
+                  } catch (e) {
+                    messenger.showSnackBar(SnackBar(
+                      content: Text('Could not accept: $e'),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: AppColors.danger,
+                    ));
+                  }
                 }),
               ),
             ],
@@ -200,7 +209,6 @@ class _OfferCard extends StatelessWidget {
     );
   }
 
-  AppStore store(BuildContext c) => c.store;
   static String _qty(double q) =>
       q == q.roundToDouble() ? q.toStringAsFixed(0) : q.toString();
 }

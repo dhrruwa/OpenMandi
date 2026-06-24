@@ -55,18 +55,33 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
   @override
   Widget build(BuildContext context) {
     final store = context.store;
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        backgroundColor: AppColors.bg,
-        surfaceTintColor: AppColors.bg,
-        foregroundColor: AppColors.ink,
-        titleSpacing: 0,
-        title: ListenableBuilder(
-          listenable: store,
-          builder: (context, _) {
-            final t = store.threadById(widget.threadId);
-            return Row(
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        final t = store.threadById(widget.threadId);
+        if (t == null) {
+          // Thread no longer exists (e.g. removed by a realtime refresh).
+          return Scaffold(
+            backgroundColor: AppColors.bg,
+            appBar: AppBar(
+                backgroundColor: AppColors.bg,
+                surfaceTintColor: AppColors.bg,
+                foregroundColor: AppColors.ink),
+            body: const Center(
+              child: Text('This conversation is no longer available.',
+                  style: TextStyle(color: AppColors.muted)),
+            ),
+          );
+        }
+        _jump();
+        return Scaffold(
+          backgroundColor: AppColors.bg,
+          appBar: AppBar(
+            backgroundColor: AppColors.bg,
+            surfaceTintColor: AppColors.bg,
+            foregroundColor: AppColors.ink,
+            titleSpacing: 0,
+            title: Row(
               children: [
                 CropAvatar(t.emoji, size: 38),
                 const SizedBox(width: Insets.s2),
@@ -83,51 +98,51 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
                   ],
                 ),
               ],
-            );
-          },
-        ),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListenableBuilder(
-              listenable: store,
-              builder: (context, _) {
-                final t = store.threadById(widget.threadId);
-                _jump();
-                return ListView.builder(
+            ),
+          ),
+          body: Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
                   controller: _scroll,
                   padding: const EdgeInsets.all(Insets.s4),
                   itemCount: t.messages.length,
                   itemBuilder: (context, i) => MessageBubble(
                     t.messages[i],
-                    onAcceptOffer: store.isFarmer
-                        ? () => _acceptOffer(store, t.messages[i].offer!)
-                        : null,
+                    onAcceptOffer:
+                        (store.isFarmer && t.messages[i].offer != null)
+                            ? () => _acceptOffer(store, t.messages[i].offer!)
+                            : null,
                   ),
-                );
-              },
-            ),
+                ),
+              ),
+              _composer(store, t),
+            ],
           ),
-          _composer(store),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  void _acceptOffer(AppStore store, Offer offer) {
-    store.acceptOffer(offer);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+  Future<void> _acceptOffer(AppStore store, Offer offer) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await store.acceptOffer(offer);
+      messenger.showSnackBar(const SnackBar(
         content: Text('Offer accepted · order created'),
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.primary,
-      ),
-    );
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('Could not accept: $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.danger,
+      ));
+    }
   }
 
-  Widget _composer(AppStore store) {
-    final t = store.threadById(widget.threadId);
+  Widget _composer(AppStore store, Thread t) {
     return Container(
       padding: EdgeInsets.fromLTRB(Insets.s3, Insets.s2, Insets.s3,
           Insets.s2 + MediaQuery.of(context).padding.bottom),

@@ -58,16 +58,24 @@ class MyListingScreen extends StatelessWidget {
     );
   }
 
-  void _accept(BuildContext context, AppStore store, Offer o) {
-    store.acceptOffer(o);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+  Future<void> _accept(BuildContext context, AppStore store, Offer o) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
+    try {
+      await store.acceptOffer(o);
+      messenger.showSnackBar(SnackBar(
         content: Text('Accepted ${o.party}\'s offer · order created'),
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.primary,
-      ),
-    );
-    Navigator.of(context).pop();
+      ));
+      nav.pop();
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('Could not accept: $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.danger,
+      ));
+    }
   }
 
   Widget _hero() {
