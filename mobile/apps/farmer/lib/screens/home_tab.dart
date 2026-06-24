@@ -99,13 +99,12 @@ class _HomeTabState extends State<HomeTab> {
                       const _Divider(),
                       SectionHeader(
                         title: store.getTranslated('your_listings'),
-                        actionLabel: store.getTranslated('active_count').replaceAll(
+                        subtitle: store.getTranslated('active_count').replaceAll(
                             '{count}',
                             store.myListings
                                 .where((l) => l.status != ListingStatus.sold)
                                 .length
                                 .toString()),
-                        onAction: () {},
                       ),
                       if (listings.isEmpty)
                         Padding(

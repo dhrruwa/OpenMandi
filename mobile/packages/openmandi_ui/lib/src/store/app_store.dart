@@ -57,6 +57,18 @@ class AppStore extends ChangeNotifier {
 
   bool get live => AppConfig.isLive;
 
+  /// A short, unique, app-generated ID derived from the auto-created account
+  /// (the Supabase user id). Shown to the user; no manual signup needed.
+  String get publicUserId {
+    if (live) {
+      final id = Backend.I.uid;
+      if (id != null) {
+        return 'OM-${id.replaceAll('-', '').substring(0, 6).toUpperCase()}';
+      }
+    }
+    return 'OM-DEMO01';
+  }
+
   /// Device coordinates (best-effort; null if unavailable). Returns null when
   /// location is disabled (no GPS prompt) or in mock mode.
   Future<(double?, double?)> currentLatLng() =>
@@ -66,16 +78,30 @@ class AppStore extends ChangeNotifier {
 
   // ── bootstrap ─────────────────────────────
   /// Entry point used by main(): live → load from Supabase; else seed mock.
+  // Temporary no-login mode: demo credentials per role.
+  String get _demoEmail =>
+      isFarmer ? 'demo_farmer@example.com' : 'demo_dealer@example.com';
+  static const _demoPassword = 'Password123!';
+
   Future<void> bootstrap() async {
     if (!live) {
       seed();
       return;
     }
+    // Auth paused → silently sign in a demo account so data + sharing work
+    // without any login screen.
+    if (!AppConfig.requireLogin && !Backend.I.signedIn) {
+      try {
+        await Backend.I.signIn(_demoEmail, _demoPassword);
+      } catch (e) {
+        lastError = 'Auto sign-in failed: $e';
+      }
+    }
     if (Backend.I.signedIn) {
       await reloadAll();
       _subscribeRealtime();
     } else {
-      notifyListeners(); // AuthGate shows onboarding
+      notifyListeners(); // AuthGate shows onboarding (only if requireLogin)
     }
   }
 
@@ -473,7 +499,7 @@ class AppStore extends ChangeNotifier {
   }
 
   // ── farmer: create listing ────────────────
-  void addListing({
+  Future<void> addListing({
     required Crop crop,
     required double qty,
     required Unit unit,
@@ -491,31 +517,34 @@ class AppStore extends ChangeNotifier {
     String? state,
     String? country,
     String? locationLabel,
-  }) {
+  }) async {
     if (live) {
       final cropId = cropIds[crop.name];
-      if (cropId != null) {
-        _live(() => Backend.I.createListing(
-              cropId: cropId,
-              qty: qty,
-              unit: unit,
-              grade: grade,
-              organic: organic,
-              price: price,
-              marketPrice: crop.marketPrice,
-              harvestInDays: harvestInDays,
-              photos: photos,
-              lat: lat,
-              lng: lng,
-              pincode: pincode,
-              village: village,
-              taluk: taluk,
-              district: district,
-              state: state,
-              country: country,
-              locationLabel: locationLabel,
-            ));
+      if (cropId == null) {
+        throw Exception('Crop list not loaded yet — pull down to refresh, then retry.');
       }
+      // awaited so failures (e.g. not verified, network) surface to the UI
+      await Backend.I.createListing(
+        cropId: cropId,
+        qty: qty,
+        unit: unit,
+        grade: grade,
+        organic: organic,
+        price: price,
+        marketPrice: crop.marketPrice,
+        harvestInDays: harvestInDays,
+        photos: photos,
+        lat: lat,
+        lng: lng,
+        pincode: pincode,
+        village: village,
+        taluk: taluk,
+        district: district,
+        state: state,
+        country: country,
+        locationLabel: locationLabel,
+      );
+      await reloadAll();
       return;
     }
     myListings.insert(

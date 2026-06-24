@@ -428,7 +428,9 @@ class _InfoNote extends StatelessWidget {
   }
 }
 
-/// Shows onboarding until the store reports [AppStore.onboarded], then [child].
+/// Gates the app on auth. While login is paused (AppConfig.requireLogin =
+/// false), there is no login/onboarding screen — the store auto-signs-in a
+/// demo account, and we show a brief splash until the session is ready.
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key, required this.child});
   final Widget child;
@@ -438,8 +440,36 @@ class AuthGate extends StatelessWidget {
     final store = context.store;
     return ListenableBuilder(
       listenable: store,
-      builder: (context, _) =>
-          store.onboarded ? child : const OnboardingFlow(),
+      builder: (context, _) {
+        if (store.onboarded) return child;
+        if (!AppConfig.requireLogin) return const _AuthSplash();
+        return const OnboardingFlow();
+      },
+    );
+  }
+}
+
+class _AuthSplash extends StatelessWidget {
+  const _AuthSplash();
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: AppColors.primary,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.eco, color: AppColors.onPrimary, size: 56),
+            SizedBox(height: Insets.s5),
+            SizedBox(
+              width: 26,
+              height: 26,
+              child: CircularProgressIndicator(
+                  color: AppColors.onPrimary, strokeWidth: 2.5),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

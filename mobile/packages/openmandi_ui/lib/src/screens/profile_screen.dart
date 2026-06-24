@@ -69,10 +69,7 @@ class ProfileScreen extends StatelessWidget {
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
                             color: AppColors.onPrimary)),
-                    Text(
-                        store.isFarmer
-                            ? 'Farmer · Kolar, Karnataka'
-                            : 'Exporter · Bengaluru',
+                    Text(store.isFarmer ? 'Farmer' : 'Exporter · Bengaluru',
                         style: const TextStyle(
                             fontSize: 13, color: Color(0xCCFBFCF9))),
                     const SizedBox(height: 4),

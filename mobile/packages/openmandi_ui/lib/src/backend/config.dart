@@ -23,6 +23,12 @@ abstract final class AppConfig {
   static const locationEnabled =
       bool.fromEnvironment('LOCATION_ENABLED', defaultValue: false);
 
+  /// Login/onboarding is PAUSED for now (focus on app polish). When false, the
+  /// app silently auto-signs-in a demo account per role and skips all auth UI.
+  /// Flip to true (or --dart-define=REQUIRE_LOGIN=true) to bring login back.
+  static const requireLogin =
+      bool.fromEnvironment('REQUIRE_LOGIN', defaultValue: false);
+
   /// True when real Supabase credentials are provided → live mode.
   /// Accepts both the legacy JWT anon key ("eyJ...") and the newer
   /// publishable key format ("sb_publishable_...").

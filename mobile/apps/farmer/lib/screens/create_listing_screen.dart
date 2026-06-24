@@ -118,7 +118,7 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
         }
       }
       final (plat, plng) = await store.currentLatLng();
-      store.addListing(
+      await store.addListing(
         crop: _crop!,
         qty: double.tryParse(_qty.text) ?? 0,
         unit: _unit,

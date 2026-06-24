@@ -47,6 +47,11 @@ class Backend {
     await _db.auth.verifyOTP(type: OtpType.email, email: email, token: token);
   }
 
+  /// Plain password sign-in (used by the temporary no-login auto-sign-in).
+  Future<void> signIn(String email, String password) async {
+    await _db.auth.signInWithPassword(email: email, password: password);
+  }
+
   // Password auth (no email verification needed when "Confirm email" is OFF in
   // the Supabase dashboard). Sign up; if the account already exists, sign in.
   Future<void> signUpOrIn(String email, String password,
