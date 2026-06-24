@@ -26,7 +26,7 @@ class PricesScreen extends StatelessWidget {
             padding: EdgeInsets.only(bottom: Insets.s3, left: Insets.s4, right: Insets.s4),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text('Live · eNAM / Agmarknet · Kolar APMC',
+              child: Text('Live · eNAM / Agmarknet',
                   style: TextStyle(fontSize: 12, color: Color(0xCCFBFCF9))),
             ),
           ),

@@ -246,8 +246,8 @@ class _PostRequirementSheetState extends State<_PostRequirementSheet> {
                   decoration: const InputDecoration(labelText: 'Needed in (days)'),
                 ),
                 const SizedBox(height: Insets.s5),
-                AppButton.primary('Post requirement',
-                    onPressed: _valid ? _submit : null),
+                AppButton.primary(_busy ? 'Posting…' : 'Post requirement',
+                    onPressed: (_valid && !_busy) ? _submit : null),
               ],
             ),
           ),
@@ -276,16 +276,35 @@ class _PostRequirementSheetState extends State<_PostRequirementSheet> {
     );
   }
 
-  void _submit() {
-    context.store.postRequirement(
-      crop: _crop!,
-      qty: double.parse(_qty.text),
-      unit: _unit,
-      priceMin: int.parse(_min.text),
-      priceMax: int.parse(_max.text),
-      neededInDays: int.tryParse(_days.text) ?? 7,
-    );
-    Navigator.of(context).pop();
+  bool _busy = false;
+
+  Future<void> _submit() async {
+    final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      await context.store.postRequirement(
+        crop: _crop!,
+        qty: double.parse(_qty.text),
+        unit: _unit,
+        priceMin: int.parse(_min.text),
+        priceMax: int.parse(_max.text),
+        neededInDays: int.tryParse(_days.text) ?? 7,
+      );
+      nav.pop();
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Requirement posted'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.primary,
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('Could not post: $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.danger,
+      ));
+      if (mounted) setState(() => _busy = false);
+    }
   }
 }
 
@@ -328,6 +347,12 @@ class _RequirementCard extends StatelessWidget {
                 fg: AppColors.primaryPress,
                 bg: AppColors.primaryTint,
               ),
+              IconButton(
+                tooltip: 'Delete requirement',
+                icon: const Icon(Icons.delete_outline,
+                    size: 20, color: AppColors.danger),
+                onPressed: () => _confirmDelete(context),
+              ),
             ],
           ),
           const Divider(height: Insets.s5),
@@ -341,6 +366,41 @@ class _RequirementCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.bg,
+        title: const Text('Delete this requirement?'),
+        content: const Text('Farmers will no longer see it. This cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete', style: TextStyle(color: AppColors.danger))),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await context.store.deleteRequirement(r);
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Requirement deleted'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.primary,
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('Could not delete: $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.danger,
+      ));
+    }
   }
 
   Widget _stat(String k, String v) {

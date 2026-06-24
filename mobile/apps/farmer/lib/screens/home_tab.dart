@@ -142,6 +142,50 @@ class _HomeTabState extends State<HomeTab> {
                           ),
                         ),
                       const _Divider(),
+                      SectionHeader(
+                        title: 'Buyers looking for produce',
+                        subtitle: '${store.openRequirements.length} open requirement(s)',
+                        actionLabel: 'See all',
+                        onAction: () => Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => const FarmerBuyRequestsScreen())),
+                      ),
+                      if (store.openRequirements.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: Insets.s4, vertical: Insets.s2),
+                          child: Text('No buyer requirements right now.',
+                              style: TextStyle(color: AppColors.muted)),
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: Insets.s4),
+                          child: Column(
+                            children: [
+                              for (var i = 0;
+                                  i < store.openRequirements.length && i < 3;
+                                  i++)
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: ProduceImage(
+                                      store.openRequirements[i].crop,
+                                      size: 40, radius: Radii.sm),
+                                  title: Text('Wants ${store.openRequirements[i].crop}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600, fontSize: 15)),
+                                  subtitle: Text(
+                                      '${inr(store.openRequirements[i].priceMin)}–${inr(store.openRequirements[i].priceMax)}/qtl',
+                                      style: const TextStyle(color: AppColors.muted)),
+                                  trailing: const Icon(Icons.chevron_right,
+                                      color: AppColors.muted),
+                                  onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              const FarmerBuyRequestsScreen())),
+                                ),
+                            ],
+                          ),
+                        ),
+                      const _Divider(),
                       SectionHeader(title: store.getTranslated('activity_title')),
                       _Activity(),
                     ],

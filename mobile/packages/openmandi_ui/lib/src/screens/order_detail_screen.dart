@@ -250,9 +250,9 @@ class _ActionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = context.store;
     final o = order;
-    final (label, onTap, accent) = _action(context, store, o);
+    final a = _action(context, store, o);
+    if (a.label == null && a.waiting == null) return const SizedBox.shrink();
 
-    if (label == null) return const SizedBox.shrink();
     return Container(
       padding: EdgeInsets.fromLTRB(Insets.s4, Insets.s3, Insets.s4,
           Insets.s3 + MediaQuery.of(context).padding.bottom),
@@ -260,13 +260,27 @@ class _ActionBar extends StatelessWidget {
         color: AppColors.bg,
         border: Border(top: BorderSide(color: AppColors.line)),
       ),
-      child: accent
-          ? AppButton.accent(label, onPressed: onTap)
-          : AppButton.primary(label, onPressed: onTap),
+      child: a.label != null
+          ? (a.accent
+              ? AppButton.accent(a.label!, onPressed: a.onTap)
+              : AppButton.primary(a.label!, onPressed: a.onTap))
+          : Row(
+              children: [
+                const Icon(Icons.schedule, size: 18, color: AppColors.muted),
+                const SizedBox(width: Insets.s2),
+                Expanded(
+                  child: Text(a.waiting!,
+                      style: const TextStyle(
+                          fontSize: 14, color: AppColors.muted)),
+                ),
+              ],
+            ),
     );
   }
 
-  (String?, VoidCallback?, bool) _action(
+  // Clean two-party flow: pay (dealer) → dispatch (farmer) → confirm+release
+  // (dealer). Each side only sees its own action; otherwise a "waiting" note.
+  ({String? label, VoidCallback? onTap, bool accent, String? waiting}) _action(
       BuildContext context, AppStore store, Order o) {
     void snack(String m) => ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -274,63 +288,45 @@ class _ActionBar extends StatelessWidget {
               behavior: SnackBarBehavior.floating,
               backgroundColor: AppColors.primary),
         );
+    const none = (label: null, onTap: null, accent: false, waiting: null);
 
     if (store.isFarmer) {
       return switch (o.stage) {
-        OrderStage.accepted when !o.paidToEscrow => (
-            'Buyer funds escrow (demo)',
-            () => store.buyerFundedEscrow(o),
-            false
-          ),
+        OrderStage.accepted => (
+            label: null, onTap: null, accent: false,
+            waiting: 'Waiting for the buyer to pay into escrow'),
         OrderStage.confirmed => (
-            'Mark dispatched',
-            () {
+            label: 'Mark as dispatched',
+            onTap: () {
               store.advance(o);
               snack('Marked as dispatched');
             },
-            false
-          ),
+            accent: false, waiting: null),
         OrderStage.inTransit => (
-            'Mark delivered',
-            () => store.advance(o),
-            false
-          ),
-        OrderStage.delivered => (
-            'Buyer confirms receipt (demo)',
-            () => store.confirmDelivery(o),
-            true
-          ),
-        _ => (null, null, false),
+            label: null, onTap: null, accent: false,
+            waiting: 'In transit — waiting for the buyer to confirm delivery'),
+        _ => none,
       };
     } else {
       return switch (o.stage) {
-        OrderStage.accepted when !o.paidToEscrow => (
-            'Pay ${inr(o.total)} into escrow',
-            () {
+        OrderStage.accepted => (
+            label: 'Pay ${inr(o.total)} into escrow',
+            onTap: () {
               store.payIntoEscrow(o);
               snack('Payment held in escrow');
             },
-            true
-          ),
+            accent: true, waiting: null),
         OrderStage.confirmed => (
-            'Farmer dispatched (demo)',
-            () => store.advance(o),
-            false
-          ),
+            label: null, onTap: null, accent: false,
+            waiting: 'Waiting for the farmer to dispatch'),
         OrderStage.inTransit => (
-            'Mark delivered',
-            () => store.advance(o),
-            false
-          ),
-        OrderStage.delivered => (
-            'Confirm delivery & release',
-            () {
+            label: 'Confirm delivery & release payment',
+            onTap: () {
               store.confirmDelivery(o);
               snack('Delivery confirmed · payment released');
             },
-            true
-          ),
-        _ => (null, null, false),
+            accent: true, waiting: null),
+        _ => none,
       };
     }
   }

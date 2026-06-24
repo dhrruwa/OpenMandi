@@ -233,7 +233,7 @@ class Backend {
           'expected_price': price,
           'market_price': marketPrice,
           'photos': photos,
-          'location_label': locationLabel ?? village ?? 'Kolar',
+          'location_label': locationLabel ?? village ?? '',
           if (lat != null) 'lat': lat,
           if (lng != null) 'lng': lng,
           if (pincode != null) 'pincode': pincode,
@@ -282,6 +282,13 @@ class Backend {
 
   Future<String> acceptOffer(String offerId) async {
     final r = await _db.rpc('accept_offer', params: {'p_offer': offerId});
+    return r as String;
+  }
+
+  /// Make or counter an offer inside a thread (either party).
+  Future<String> counterOffer(String threadId, int price, double qty) async {
+    final r = await _db.rpc('counter_offer',
+        params: {'p_thread': threadId, 'p_price': price, 'p_qty': qty});
     return r as String;
   }
 
@@ -455,8 +462,71 @@ class Backend {
       'unit': unit.name,
       'price_min': priceMin,
       'price_max': priceMax,
+      'needed_by': DateTime.now()
+          .add(Duration(days: neededInDays))
+          .toIso8601String()
+          .substring(0, 10),
       'location_label': 'within 50 km',
     });
+  }
+
+  Future<void> deleteRequirement(String id) async {
+    await _db.from('buy_requests').delete().eq('id', id);
+  }
+
+  Future<void> deleteListing(String id) async {
+    await _db.from('listings').delete().eq('id', id);
+  }
+
+  /// Farmer responds to a dealer's requirement → starts/reuses a chat thread.
+  /// Returns the thread id to open.
+  Future<String> respondToRequirement(String reqId) async {
+    final tid = await _db.rpc('respond_to_requirement', params: {'p_req': reqId});
+    return tid as String;
+  }
+
+  /// All open buy requirements (for farmers to browse what dealers want).
+  Future<List<BuyRequirement>> loadOpenRequirements() async {
+    final rows = await _db
+        .from('buy_requests')
+        .select('*, crops(name, emoji)')
+        .eq('status', 'open')
+        .order('created_at', ascending: false)
+        .limit(50);
+    return _mapRequirements(rows);
+  }
+
+  /// The dealer's own posted buy requirements.
+  Future<List<BuyRequirement>> loadRequirements() async {
+    final id = uid;
+    if (id == null) return [];
+    final rows = await _db
+        .from('buy_requests')
+        .select('*, crops(name, emoji)')
+        .eq('dealer_id', id)
+        .order('created_at', ascending: false);
+    return _mapRequirements(rows);
+  }
+
+  List<BuyRequirement> _mapRequirements(List<dynamic> rows) {
+    final today = DateTime.now();
+    return [
+      for (final r in rows)
+        BuyRequirement(
+          id: r['id'] as String,
+          crop: (r['crops']?['name'] ?? '') as String,
+          emoji: (r['crops']?['emoji'] ?? '🌱') as String,
+          qty: (r['quantity'] as num).toDouble(),
+          unit: _unit(r['unit'] as String),
+          priceMin: (r['price_min'] ?? 0) as int,
+          priceMax: (r['price_max'] ?? 0) as int,
+          neededInDays: r['needed_by'] != null
+              ? DateTime.parse(r['needed_by'] as String).difference(today).inDays.clamp(0, 999)
+              : 0,
+          location: (r['location_label'] ?? 'within 50 km') as String,
+          responses: (r['responses'] ?? 0) as int,
+        ),
+    ];
   }
 
   Future<void> submitReview(String orderId, String toUser, int rating) async {

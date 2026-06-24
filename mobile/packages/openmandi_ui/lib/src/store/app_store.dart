@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/widgets.dart';
 
@@ -34,7 +36,8 @@ class AppStore extends ChangeNotifier {
   final List<Order> orders = [];
   final List<Thread> threads = [];
   final List<AppNotification> notifications = [];
-  final List<BuyRequirement> requirements = [];
+  final List<BuyRequirement> requirements = []; // dealer's own posted
+  final List<BuyRequirement> openRequirements = []; // all open (farmer browses)
   final List<WalletTxn> txns = [];
 
   int wallet = 0;
@@ -54,6 +57,8 @@ class AppStore extends ChangeNotifier {
   String? lastError;
   double? myLat;
   double? myLng;
+  double avgRating = 0; // real rating of the signed-in user
+  int ratingCount = 0;
 
   bool get live => AppConfig.isLive;
 
@@ -117,9 +122,37 @@ class AppStore extends ChangeNotifier {
     _reloading = true;
     final b = Backend.I;
     try {
-      final row = await b.myUserRow();
+      // Kick off every independent load at once, then await together — much
+      // faster than the old one-after-another sequence.
+      final useLoc = !isFarmer && AppConfig.locationEnabled;
+      final userF = b.myUserRow();
+      final cropsF = b.loadCropRows();
+      final pricesF = b.loadPrices();
+      final listingsF = isFarmer ? b.loadMyListings() : b.loadMarketListings();
+      final ordersF = b.loadOrders();
+      final Future<List<Offer>> offersF =
+          isFarmer ? b.loadIncomingOffers() : Future.value(<Offer>[]);
+      final Future<List<BuyRequirement>> reqsF =
+          isFarmer ? Future.value(<BuyRequirement>[]) : b.loadRequirements();
+      final Future<List<BuyRequirement>> openReqF =
+          isFarmer ? b.loadOpenRequirements() : Future.value(<BuyRequirement>[]);
+      final threadsF = b.loadThreads();
+      final notifsF = b.loadNotifications();
+      final Future<List<DealerPreferredLocation>> prefLocF =
+          useLoc ? b.loadPreferredLocations() : Future.value(<DealerPreferredLocation>[]);
+      final Future<(double?, double?)> myLatLngF =
+          useLoc ? b.currentLatLng() : Future.value((null, null));
+
+      await Future.wait<dynamic>([
+        userF, cropsF, pricesF, listingsF, ordersF, offersF, reqsF,
+        openReqF, threadsF, notifsF, prefLocF, myLatLngF,
+      ]);
+
+      final row = await userF;
       if (row != null) {
         userName = (row['full_name'] ?? userName) as String;
+        avgRating = ((row['avg_rating'] ?? 0) as num).toDouble();
+        ratingCount = (row['rating_count'] ?? 0) as int;
         onboarded = true;
         kyc = switch (row['kyc_status'] as String?) {
           'verified' => KycStatus.verified,
@@ -146,8 +179,8 @@ class AppStore extends ChangeNotifier {
           };
         }
       }
-      final cropRows = await b.loadCropRows();
-      final livePrices = await b.loadPrices();
+      final cropRows = await cropsF;
+      final livePrices = await pricesF;
       final priceByName = {for (final p in livePrices) p.crop: p.price};
       crops
         ..clear()
@@ -164,21 +197,20 @@ class AppStore extends ChangeNotifier {
         ..clear()
         ..addAll(livePrices);
       if (isFarmer) {
-        final mine = await b.loadMyListings();
         myListings
           ..clear()
-          ..addAll(mine);
+          ..addAll(await listingsF);
       } else {
-        final m = await b.loadMarketListings();
-        if (AppConfig.locationEnabled) {
-          final (mlat, mlng) = await b.currentLatLng();
+        final m = await listingsF;
+        if (useLoc) {
+          final (mlat, mlng) = await myLatLngF;
           myLat = mlat;
           myLng = mlng;
-          final locs = await b.loadPreferredLocations();
           preferredLocations
             ..clear()
-            ..addAll(locs);
+            ..addAll(await prefLocF);
 
+          // distance computed locally (haversine) — free + instant, no API call
           final withDist = <Listing>[];
           for (final l in m) {
             int? bestDist;
@@ -186,17 +218,13 @@ class AppStore extends ChangeNotifier {
               double? minD;
               if (preferredLocations.isNotEmpty) {
                 for (final pl in preferredLocations) {
-                  final d = await b.getDistanceMatrix(pl.lat, pl.lng, l.lat!, l.lng!);
-                  if (d != null && (minD == null || d < minD)) {
-                    minD = d;
-                  }
+                  final d = _haversineKm(pl.lat, pl.lng, l.lat!, l.lng!);
+                  if (minD == null || d < minD) minD = d;
                 }
               } else if (mlat != null && mlng != null) {
-                minD = await b.getDistanceMatrix(mlat, mlng, l.lat!, l.lng!);
+                minD = _haversineKm(mlat, mlng, l.lat!, l.lng!);
               }
-              if (minD != null) {
-                bestDist = minD.round();
-              }
+              if (minD != null) bestDist = minD.round();
             }
             withDist.add(bestDist == null ? l : l.withDistanceKm(bestDist));
           }
@@ -204,30 +232,32 @@ class AppStore extends ChangeNotifier {
             ..clear()
             ..addAll(withDist);
         } else {
-          // Location disabled: load listings without distance.
           market
             ..clear()
             ..addAll(m);
         }
       }
-      final ords = await b.loadOrders();
       orders
         ..clear()
-        ..addAll(ords);
+        ..addAll(await ordersF);
       if (isFarmer) {
-        final inc = await b.loadIncomingOffers();
         offers
           ..clear()
-          ..addAll(inc);
+          ..addAll(await offersF);
+        openRequirements
+          ..clear()
+          ..addAll(await openReqF);
+      } else {
+        requirements
+          ..clear()
+          ..addAll(await reqsF);
       }
-      final th = await b.loadThreads();
       threads
         ..clear()
-        ..addAll(th);
-      final notifs = await b.loadNotifications();
+        ..addAll(await threadsF);
       notifications
         ..clear()
-        ..addAll(notifs);
+        ..addAll(await notifsF);
 
       // fill each order's mandi reference + derive real wallet/escrow
       for (final o in orders) {
@@ -267,6 +297,14 @@ class AppStore extends ChangeNotifier {
     }
   }
 
+  // Debounce realtime events: a burst across tables coalesces into one reload,
+  // keeping the UI smooth instead of firing many full reloads back-to-back.
+  Timer? _reloadDebounce;
+  void _scheduleReload() {
+    _reloadDebounce?.cancel();
+    _reloadDebounce = Timer(const Duration(milliseconds: 700), reloadAll);
+  }
+
   bool _subscribed = false;
   void _subscribeRealtime() {
     if (_subscribed) return;
@@ -279,12 +317,13 @@ class AppStore extends ChangeNotifier {
       'listings',
       'threads',
     ]) {
-      Backend.I.subscribe(table, reloadAll);
+      Backend.I.subscribe(table, _scheduleReload);
     }
   }
 
   @override
   void dispose() {
+    _reloadDebounce?.cancel();
     if (live) Backend.I.disposeChannels();
     super.dispose();
   }
@@ -659,6 +698,36 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Make or counter an offer inside an existing chat thread (either party).
+  Future<void> counterOffer(Thread t, int price, double qty) async {
+    if (live) {
+      await Backend.I.counterOffer(t.id, price, qty);
+      await refreshThreads();
+      return;
+    }
+    // mock: append an offer message to the local thread
+    t.messages.add(Message(
+      id: _id('m'),
+      mine: true,
+      time: 'Just now',
+      offer: Offer(
+        id: _id('of'),
+        listingId: '',
+        crop: t.crop,
+        emoji: t.emoji,
+        party: t.name,
+        partyRole: t.role,
+        price: price,
+        qty: qty,
+        unit: Unit.quintal,
+        marketPrice: 0,
+        when: 'Just now',
+        fromMe: true,
+      ),
+    ));
+    notifyListeners();
+  }
+
   // ── dealer: make an offer ─────────────────
   /// Mock-only optimistic offer→order. In live mode the dealer UI calls
   /// Backend.makeOffer directly (creates offer+thread; farmer accepts later).
@@ -728,6 +797,11 @@ class AppStore extends ChangeNotifier {
   /// Dealer side: buyer pays now; debit wallet, hold in escrow.
   void payIntoEscrow(Order o) {
     if (live) {
+      // optimistic: reflect instantly, then sync in the background
+      o.paidToEscrow = true;
+      o.stage = OrderStage.confirmed;
+      escrow += o.total;
+      notifyListeners();
       _live(() => Backend.I.advanceOrder(o.id));
       return;
     }
@@ -751,6 +825,11 @@ class AppStore extends ChangeNotifier {
 
   void advance(Order o) {
     if (live) {
+      // optimistic: bump stage instantly, then sync
+      if (o.stage.index < OrderStage.delivered.index) {
+        o.stage = OrderStage.values[o.stage.index + 1];
+        notifyListeners();
+      }
       _live(() => Backend.I.advanceOrder(o.id));
       return;
     }
@@ -763,6 +842,11 @@ class AppStore extends ChangeNotifier {
   /// Buyer confirms delivery → escrow releases to the farmer, order completes.
   void confirmDelivery(Order o) {
     if (live) {
+      // optimistic: mark completed + move escrow instantly, then sync
+      o.stage = OrderStage.completed;
+      escrow = (escrow - o.total).clamp(0, 1 << 31);
+      if (isFarmer) wallet += o.total;
+      notifyListeners();
       _live(() => Backend.I.completeOrder(o.id));
       return;
     }
@@ -817,6 +901,25 @@ class AppStore extends ChangeNotifier {
     if (live && o.counterpartyId.isNotEmpty) {
       _live(() => Backend.I.submitReview(o.id, o.counterpartyId, stars));
     }
+  }
+
+  // ── payment methods (local; no live gateway in this build) ──────────
+  final List<PaymentMethod> paymentMethods = [];
+
+  void addPaymentMethod(String kind, String label, String detail) {
+    paymentMethods.add(PaymentMethod(
+        id: _id('pm'),
+        kind: kind,
+        label: label,
+        detail: kind == 'bank' && detail.length > 4
+            ? 'A/C ••${detail.substring(detail.length - 4)}'
+            : detail));
+    notifyListeners();
+  }
+
+  void removePaymentMethod(PaymentMethod m) {
+    paymentMethods.removeWhere((x) => x.id == m.id);
+    notifyListeners();
   }
 
   void withdraw(int amount) {
@@ -950,26 +1053,28 @@ class AppStore extends ChangeNotifier {
   }
 
   // ── requirements ──────────────────────────
-  void postRequirement({
+  Future<void> postRequirement({
     required Crop crop,
     required double qty,
     required Unit unit,
     required int priceMin,
     required int priceMax,
     required int neededInDays,
-  }) {
+  }) async {
     if (live) {
       final cropId = cropIds[crop.name];
-      if (cropId != null) {
-        _live(() => Backend.I.postRequirement(
-              cropId: cropId,
-              qty: qty,
-              unit: unit,
-              priceMin: priceMin,
-              priceMax: priceMax,
-              neededInDays: neededInDays,
-            ));
+      if (cropId == null) {
+        throw Exception('Crop list not loaded yet — pull to refresh and retry.');
       }
+      await Backend.I.postRequirement(
+        cropId: cropId,
+        qty: qty,
+        unit: unit,
+        priceMin: priceMin,
+        priceMax: priceMax,
+        neededInDays: neededInDays,
+      );
+      await reloadAll();
       return;
     }
     requirements.insert(
@@ -990,7 +1095,72 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> deleteListing(Listing l) async {
+    if (live) {
+      await Backend.I.deleteListing(l.id);
+      await reloadAll();
+      return;
+    }
+    myListings.removeWhere((x) => x.id == l.id);
+    notifyListeners();
+  }
+
+  Future<void> deleteRequirement(BuyRequirement r) async {
+    if (live) {
+      await Backend.I.deleteRequirement(r.id);
+      await reloadAll();
+      return;
+    }
+    requirements.removeWhere((x) => x.id == r.id);
+    notifyListeners();
+  }
+
+  /// Farmer responds to a dealer's requirement; returns the chat thread id.
+  Future<String?> respondToRequirement(BuyRequirement r) async {
+    if (live) {
+      final tid = await Backend.I.respondToRequirement(r.id);
+      await refreshThreads();
+      return tid;
+    }
+    // mock: fabricate a local thread so the chat opens
+    final tid = _id('th');
+    threads.insert(
+      0,
+      Thread(
+        id: tid,
+        name: 'Buyer',
+        role: 'Dealer',
+        crop: r.crop,
+        emoji: r.emoji,
+        messages: [
+          Message(
+            id: _id('m'),
+            mine: true,
+            time: 'Just now',
+            text: 'Hi, I can supply your ${r.crop} requirement.',
+          ),
+        ],
+      ),
+    );
+    notifyListeners();
+    return tid;
+  }
+
   // ── helpers ───────────────────────────────
+  /// Great-circle distance in km — free, local, instant (no Distance Matrix API).
+  static double _haversineKm(double lat1, double lng1, double lat2, double lng2) {
+    const r = 6371.0;
+    double rad(double d) => d * math.pi / 180.0;
+    final dLat = rad(lat2 - lat1);
+    final dLng = rad(lng2 - lng1);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(rad(lat1)) *
+            math.cos(rad(lat2)) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+  }
+
   static Listing _withStatus(Listing l, ListingStatus s) => Listing(
         id: l.id,
         crop: l.crop,
@@ -1074,9 +1244,9 @@ class AppStore extends ChangeNotifier {
       'cat_offers': 'Offers',
       'cat_sold': 'Sold',
       'search_produce': 'Search your produce...',
-      'live_mandi_subtitle': 'Kolar, Karnataka · live mandi',
+      'live_mandi_subtitle': 'Live mandi prices',
       'todays_mandi_price': "Today's mandi price",
-      'mandi_price_subtitle': 'Live · eNAM · Kolar APMC',
+      'mandi_price_subtitle': 'Live · eNAM / Agmarknet',
       'your_listings': 'Your listings',
       'active_count': '{count} active',
       'empty_listings_hint': 'Nothing here — tap “List produce” to add a crop.',

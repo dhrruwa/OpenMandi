@@ -9,9 +9,11 @@ import 'voice_widgets.dart';
 
 /// Chat bubble. Plain text, an embedded offer card, or a centred system note.
 class MessageBubble extends StatelessWidget {
-  const MessageBubble(this.message, {super.key, this.onAcceptOffer});
+  const MessageBubble(this.message,
+      {super.key, this.onAcceptOffer, this.onCounterOffer});
   final Message message;
   final VoidCallback? onAcceptOffer;
+  final VoidCallback? onCounterOffer;
 
   @override
   Widget build(BuildContext context) {
@@ -118,26 +120,60 @@ class MessageBubble extends StatelessWidget {
                   fontFeatures: [FontFeature.tabularFigures()])),
           Text('${_qty(o.qty)} ${o.unit.label} · total ${inr(o.total)}',
               style: const TextStyle(fontSize: 13, color: AppColors.muted)),
-          if (!mine && onAcceptOffer != null && o.status == OfferStatus.pending) ...[
+          if (!mine && o.status == OfferStatus.pending) ...[
             const SizedBox(height: Insets.s3),
-            GestureDetector(
-              onTap: onAcceptOffer,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.accent,
-                  borderRadius: BorderRadius.circular(Radii.sm),
-                ),
-                child: const Text('Accept offer',
-                    style: TextStyle(
-                        color: AppColors.onAccent,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14)),
-              ),
+            Row(
+              children: [
+                if (onAcceptOffer != null)
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: onAcceptOffer,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(Radii.sm),
+                        ),
+                        child: const Text('Accept',
+                            style: TextStyle(
+                                color: AppColors.onAccent,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14)),
+                      ),
+                    ),
+                  ),
+                if (onAcceptOffer != null && onCounterOffer != null)
+                  const SizedBox(width: Insets.s2),
+                if (onCounterOffer != null)
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: onCounterOffer,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: AppColors.bg,
+                          borderRadius: BorderRadius.circular(Radii.sm),
+                          border: Border.all(color: AppColors.accent),
+                        ),
+                        child: const Text('Counter',
+                            style: TextStyle(
+                                color: AppColors.accentPress,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14)),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ],
+          if (mine && o.status == OfferStatus.pending)
+            const Padding(
+              padding: EdgeInsets.only(top: Insets.s2),
+              child: Text('Awaiting reply',
+                  style: TextStyle(fontSize: 12, color: AppColors.muted)),
+            ),
           if (o.status == OfferStatus.accepted)
             Padding(
               padding: const EdgeInsets.only(top: Insets.s2),

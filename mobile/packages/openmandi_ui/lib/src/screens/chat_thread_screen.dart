@@ -6,6 +6,7 @@ import '../store/app_store.dart';
 import '../models/trade.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
+import '../widgets/buttons.dart';
 import '../widgets/crop_avatar.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/voice_widgets.dart';
@@ -117,6 +118,13 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
                 ),
               ],
             ),
+            actions: [
+              IconButton(
+                tooltip: 'Make / counter an offer',
+                icon: const Icon(Icons.local_offer_outlined),
+                onPressed: () => _offerSheet(store, t),
+              ),
+            ],
           ),
           body: Column(
             children: [
@@ -125,13 +133,18 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
                   controller: _scroll,
                   padding: const EdgeInsets.all(Insets.s4),
                   itemCount: t.messages.length,
-                  itemBuilder: (context, i) => MessageBubble(
-                    t.messages[i],
-                    onAcceptOffer:
-                        (store.isFarmer && t.messages[i].offer != null)
-                            ? () => _acceptOffer(store, t.messages[i].offer!)
-                            : null,
-                  ),
+                  itemBuilder: (context, i) {
+                    final m = t.messages[i];
+                    final canAct = m.offer != null &&
+                        !m.offer!.fromMe &&
+                        m.offer!.status == OfferStatus.pending;
+                    return MessageBubble(
+                      m,
+                      onAcceptOffer:
+                          canAct ? () => _acceptOffer(store, m.offer!) : null,
+                      onCounterOffer: canAct ? () => _offerSheet(store, t) : null,
+                    );
+                  },
                 ),
               ),
               _composer(store, t),
@@ -139,6 +152,72 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
           ),
         );
       },
+    );
+  }
+
+  void _offerSheet(AppStore store, Thread t) {
+    final priceC = TextEditingController();
+    final qtyC = TextEditingController();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.lg)),
+      ),
+      builder: (sheetCtx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(sheetCtx).viewInsets.bottom),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(Insets.s5),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Propose a price for ${t.crop}',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                const Text('Either side can counter until you agree.',
+                    style: TextStyle(fontSize: 13, color: AppColors.muted)),
+                const SizedBox(height: Insets.s4),
+                TextField(
+                  controller: priceC,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                      labelText: 'Price', prefixText: '₹ ', suffixText: '/qtl'),
+                ),
+                const SizedBox(height: Insets.s3),
+                TextField(
+                  controller: qtyC,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                      labelText: 'Quantity', suffixText: 'quintal'),
+                ),
+                const SizedBox(height: Insets.s5),
+                AppButton.primary('Send offer', onPressed: () async {
+                  final price = int.tryParse(priceC.text.trim()) ?? 0;
+                  final qty = double.tryParse(qtyC.text.trim()) ?? 0;
+                  if (price <= 0 || qty <= 0) return;
+                  final nav = Navigator.of(sheetCtx);
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    await store.counterOffer(t, price, qty);
+                    nav.pop();
+                    _jump();
+                  } catch (e) {
+                    messenger.showSnackBar(SnackBar(
+                      content: Text('Could not send: $e'),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: AppColors.danger,
+                    ));
+                  }
+                }),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

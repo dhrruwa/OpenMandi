@@ -212,3 +212,152 @@ class _OfferCard extends StatelessWidget {
   static String _qty(double q) =>
       q == q.roundToDouble() ? q.toStringAsFixed(0) : q.toString();
 }
+
+/// Open buy requirements posted by dealers — what buyers are looking for.
+class FarmerBuyRequestsScreen extends StatelessWidget {
+  const FarmerBuyRequestsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.store;
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        surfaceTintColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
+        title: const Text('Buyers looking for produce',
+            style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.onPrimary)),
+      ),
+      body: ListenableBuilder(
+        listenable: store,
+        builder: (context, _) {
+          final reqs = store.openRequirements;
+          if (reqs.isEmpty) {
+            return const EmptyState(
+              icon: Icons.assignment_outlined,
+              title: 'No buyer requirements yet',
+              body: 'When dealers post what they want to buy, it shows here so '
+                  'you can supply it directly.',
+            );
+          }
+          return RefreshIndicator(
+            onRefresh: store.reloadAll,
+            child: ListView.separated(
+              padding: const EdgeInsets.all(Insets.s4),
+              itemCount: reqs.length,
+              separatorBuilder: (_, __) => const SizedBox(height: Insets.s3),
+              itemBuilder: (context, i) => _ReqCard(reqs[i]),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ReqCard extends StatefulWidget {
+  const _ReqCard(this.r);
+  final BuyRequirement r;
+
+  @override
+  State<_ReqCard> createState() => _ReqCardState();
+}
+
+class _ReqCardState extends State<_ReqCard> {
+  bool _busy = false;
+
+  BuyRequirement get r => widget.r;
+
+  Future<void> _respond() async {
+    final store = context.store;
+    final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      final tid = await store.respondToRequirement(r);
+      if (tid == null) throw Exception('could not start chat');
+      nav.push(MaterialPageRoute(builder: (_) => ChatThreadScreen(tid)));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('Could not respond: $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.danger,
+      ));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(Insets.s4),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(Radii.md),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ProduceImage(r.crop, size: 48, radius: Radii.sm),
+              const SizedBox(width: Insets.s3),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Wants ${r.crop}',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    Text('${_qty(r.qty)} ${r.unit.label} · ${r.location}',
+                        style: const TextStyle(fontSize: 13, color: AppColors.muted)),
+                  ],
+                ),
+              ),
+              Pill(
+                label: '${r.responses} responses',
+                icon: Icons.people_alt_outlined,
+                fg: AppColors.primaryPress,
+                bg: AppColors.primaryTint,
+              ),
+            ],
+          ),
+          const Divider(height: Insets.s5),
+          Row(
+            children: [
+              _stat('Pays', '${inr(r.priceMin)}–${inr(r.priceMax)}/qtl'),
+              const SizedBox(width: Insets.s5),
+              _stat('Needed in', '${r.neededInDays} days'),
+            ],
+          ),
+          const SizedBox(height: Insets.s4),
+          SizedBox(
+            width: double.infinity,
+            child: AppButton.primary(
+              _busy ? 'Opening chat…' : 'I can supply this',
+              icon: Icons.handshake_outlined,
+              onPressed: _busy ? null : _respond,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stat(String k, String v) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(k, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+          Text(v,
+              style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: [FontFeature.tabularFigures()])),
+        ],
+      );
+
+  static String _qty(double q) =>
+      q == q.roundToDouble() ? q.toStringAsFixed(0) : q.toString();
+}

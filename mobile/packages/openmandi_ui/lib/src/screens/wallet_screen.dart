@@ -31,10 +31,19 @@ class WalletScreen extends StatelessWidget {
           children: [
             _balanceCard(context, store),
             const SizedBox(height: Insets.s5),
+            _paymentMethods(context, store),
+            const SizedBox(height: Insets.s5),
             const Text('Transactions',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
             const SizedBox(height: Insets.s2),
-            for (final tx in store.txns) _txTile(tx),
+            if (store.txns.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: Insets.s3),
+                child: Text('No transactions yet.',
+                    style: TextStyle(color: AppColors.muted)),
+              )
+            else
+              for (final tx in store.txns) _txTile(tx),
           ],
         ),
       ),
@@ -102,6 +111,143 @@ class WalletScreen extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _paymentMethods(BuildContext context, AppStore store) {
+    final methods = store.paymentMethods;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text('Payment methods',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+            ),
+            TextButton.icon(
+              onPressed: () => _addMethodSheet(context, store),
+              icon: const Icon(Icons.add, size: 18, color: AppColors.primary),
+              label: const Text('Add',
+                  style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+        const SizedBox(height: Insets.s1),
+        Material(
+          color: AppColors.bg,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: AppColors.line),
+            borderRadius: BorderRadius.circular(Radii.md),
+          ),
+          child: Column(
+            children: [
+              for (var i = 0; i < methods.length; i++) ...[
+                ListTile(
+                  leading: Icon(
+                      methods[i].kind == 'upi'
+                          ? Icons.qr_code_2
+                          : Icons.account_balance,
+                      color: AppColors.primary),
+                  title: Text(methods[i].label,
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w600)),
+                  subtitle: Text(methods[i].detail,
+                      style: const TextStyle(color: AppColors.muted)),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline,
+                        size: 20, color: AppColors.muted),
+                    onPressed: () => store.removePaymentMethod(methods[i]),
+                  ),
+                ),
+                if (i < methods.length - 1)
+                  const Divider(height: 1, indent: 56, color: AppColors.line),
+              ],
+              if (methods.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(Insets.s4),
+                  child: Text('No payment method added yet.',
+                      style: TextStyle(color: AppColors.muted)),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: Insets.s2),
+        const Row(
+          children: [
+            Icon(Icons.info_outline, size: 14, color: AppColors.muted),
+            SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Payouts settle to your saved method. Live payment gateway is '
+                'not enabled in this build — amounts are tracked in-app.',
+                style: TextStyle(fontSize: 12, color: AppColors.muted, height: 1.3),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _addMethodSheet(BuildContext context, AppStore store) {
+    final label = TextEditingController();
+    final detail = TextEditingController();
+    String kind = 'upi';
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.lg)),
+      ),
+      builder: (_) => StatefulBuilder(
+        builder: (context, setSheet) => Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.all(Insets.s5),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Add payment method',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: Insets.s4),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'upi', label: Text('UPI'), icon: Icon(Icons.qr_code_2)),
+                      ButtonSegment(value: 'bank', label: Text('Bank'), icon: Icon(Icons.account_balance)),
+                    ],
+                    selected: {kind},
+                    onSelectionChanged: (s) => setSheet(() => kind = s.first),
+                  ),
+                  const SizedBox(height: Insets.s4),
+                  TextField(
+                    controller: label,
+                    decoration: InputDecoration(
+                        labelText: kind == 'upi' ? 'Name (e.g. My GPay)' : 'Bank name'),
+                  ),
+                  const SizedBox(height: Insets.s3),
+                  TextField(
+                    controller: detail,
+                    decoration: InputDecoration(
+                        labelText: kind == 'upi' ? 'UPI ID (you@bank)' : 'Account number'),
+                  ),
+                  const SizedBox(height: Insets.s5),
+                  AppButton.primary('Save method', onPressed: () {
+                    if (label.text.trim().isEmpty || detail.text.trim().isEmpty) return;
+                    store.addPaymentMethod(kind, label.text.trim(), detail.text.trim());
+                    Navigator.of(context).pop();
+                  }),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -17,6 +17,13 @@ class MyListingScreen extends StatelessWidget {
         foregroundColor: AppColors.ink,
         title: Text(listing.crop,
             style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+        actions: [
+          IconButton(
+            tooltip: 'Delete listing',
+            icon: const Icon(Icons.delete_outline, color: AppColors.danger),
+            onPressed: () => _confirmDelete(context, store),
+          ),
+        ],
       ),
       body: ListenableBuilder(
         listenable: store,
@@ -56,6 +63,44 @@ class MyListingScreen extends StatelessWidget {
         },
       ),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, AppStore store) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.bg,
+        title: const Text('Delete this listing?'),
+        content: const Text('It will be removed for buyers. This cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete', style: TextStyle(color: AppColors.danger))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    if (!context.mounted) return;
+    final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await store.deleteListing(listing);
+      nav.pop();
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Listing deleted'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.primary,
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('Could not delete: $e'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.danger,
+      ));
+    }
   }
 
   Future<void> _accept(BuildContext context, AppStore store, Offer o) async {

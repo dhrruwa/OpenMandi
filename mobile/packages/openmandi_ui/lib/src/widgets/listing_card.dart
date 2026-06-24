@@ -122,8 +122,10 @@ class ListingCard extends StatelessWidget {
           _meta(Icons.schedule, '${l.harvestInDays}d to harvest'),
         const SizedBox(width: Insets.s3),
         _meta(Icons.visibility_outlined, '${l.views}'),
-        const SizedBox(width: Insets.s3),
-        Flexible(child: _meta(Icons.place_outlined, l.location)),
+        if (l.location.trim().isNotEmpty) ...[
+          const SizedBox(width: Insets.s3),
+          Flexible(child: _meta(Icons.place_outlined, l.location)),
+        ],
       ],
     );
   }
@@ -145,9 +147,13 @@ class ListingCard extends StatelessWidget {
           ),
         ),
         const SizedBox(width: Insets.s2),
-        const Icon(Icons.star_rounded, size: 14, color: AppColors.warn),
-        Text(' ${s.rating}',
-            style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+        if (s.deals > 0) ...[
+          const Icon(Icons.star_rounded, size: 14, color: AppColors.warn),
+          Text(' ${s.rating}',
+              style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+        ] else
+          const Text('New',
+              style: TextStyle(fontSize: 12, color: AppColors.muted)),
         if (AppConfig.locationEnabled) ...[
           const SizedBox(width: Insets.s3),
           _meta(Icons.near_me_outlined,

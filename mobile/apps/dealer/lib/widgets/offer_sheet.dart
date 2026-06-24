@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:openmandi_ui/openmandi_ui.dart';
@@ -184,7 +186,8 @@ class _OfferSheetState extends State<OfferSheet> {
       try {
         final threadId =
             await Backend.I.makeOffer(widget.listing.id, _priceNum, _qtyNum);
-        await store.reloadAll();
+        // open the chat immediately; refresh in the background (don't block)
+        unawaited(store.reloadAll());
         nav.push(MaterialPageRoute(builder: (_) => ChatThreadScreen(threadId)));
         messenger.showSnackBar(SnackBar(
           backgroundColor: AppColors.primary,

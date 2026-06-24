@@ -229,11 +229,15 @@ class ListingDetailScreen extends StatelessWidget {
                 const SizedBox(height: 1),
                 Row(
                   children: [
-                    const Icon(Icons.star_rounded,
-                        size: 15, color: AppColors.warn),
-                    Text(' ${s.rating}  ·  ${s.deals} deals  ·  ${s.village}',
-                        style: const TextStyle(
-                            fontSize: 13, color: AppColors.muted)),
+                    if (s.deals > 0) ...[
+                      const Icon(Icons.star_rounded,
+                          size: 15, color: AppColors.warn),
+                      Text(' ${s.rating} · ${s.deals} ${s.deals == 1 ? 'deal' : 'deals'}',
+                          style: const TextStyle(
+                              fontSize: 13, color: AppColors.muted)),
+                    ] else
+                      const Text('New seller',
+                          style: TextStyle(fontSize: 13, color: AppColors.muted)),
                   ],
                 ),
               ],

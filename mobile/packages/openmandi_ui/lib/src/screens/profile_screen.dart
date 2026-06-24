@@ -70,19 +70,23 @@ class ProfileScreen extends StatelessWidget {
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
                             color: AppColors.onPrimary)),
-                    Text(store.isFarmer ? 'Farmer' : 'Exporter · Bengaluru',
+                    Text(store.isFarmer ? 'Farmer' : 'Dealer',
                         style: const TextStyle(
                             fontSize: 13, color: Color(0xCCFBFCF9))),
                     const SizedBox(height: 4),
-                    const Row(
-                      children: [
-                        RatingStars(4.8, size: 14),
-                        SizedBox(width: 6),
-                        Text('4.8 · 34 deals',
-                            style: TextStyle(
-                                fontSize: 12, color: Color(0xE6FBFCF9))),
-                      ],
-                    ),
+                    if (store.ratingCount > 0)
+                      Row(
+                        children: [
+                          RatingStars(store.avgRating, size: 14),
+                          const SizedBox(width: 6),
+                          Text('${store.avgRating} · ${store.ratingCount} ${store.ratingCount == 1 ? 'rating' : 'ratings'}',
+                              style: const TextStyle(
+                                  fontSize: 12, color: Color(0xE6FBFCF9))),
+                        ],
+                      )
+                    else
+                      const Text('New · no ratings yet',
+                          style: TextStyle(fontSize: 12, color: Color(0xE6FBFCF9))),
                   ],
                 ),
               ),
@@ -134,14 +138,17 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
           const SizedBox(height: Insets.s4),
-          // Dealer-only group (wallet / searches / KYC). Farmers don't have
-          // wallet, KYC or location for now.
+          // Payments — available to both farmers (payouts) and dealers (wallet).
+          _group([
+            _row(context, Icons.account_balance_wallet_outlined,
+                store.isFarmer ? 'Payments & payouts' : 'Wallet & payments',
+                () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const WalletScreen()))),
+          ]),
+          const SizedBox(height: Insets.s4),
+          // Dealer-only group (searches / KYC / locations).
           if (!store.isFarmer) ...[
             _group([
-              _row(context, Icons.account_balance_wallet_outlined,
-                  'Wallet & payments',
-                  () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const WalletScreen()))),
               if (AppConfig.locationEnabled)
                 _row(context, Icons.location_on_outlined, 'Preferred Locations',
                     () => Navigator.of(context).push(MaterialPageRoute(

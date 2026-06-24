@@ -193,3 +193,17 @@ class WalletTxn {
   final String when;
   final bool credit;
 }
+
+/// A saved payout/payment method (UI-only; no live gateway in this build).
+class PaymentMethod {
+  PaymentMethod({
+    required this.id,
+    required this.kind, // 'upi' | 'bank'
+    required this.label,
+    required this.detail,
+  });
+  final String id;
+  final String kind;
+  final String label;
+  final String detail;
+}

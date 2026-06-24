@@ -122,53 +122,72 @@ class MarketHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(height: Insets.s3),
-          // categories
-          SizedBox(
-            height: 72,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: Insets.s4),
-              itemCount: categories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: Insets.s4),
-              itemBuilder: (context, i) {
-                final c = categories[i];
-                final on = i == selected;
-                return GestureDetector(
-                  onTap: () => onCategory(i),
-                  behavior: HitTestBehavior.opaque,
-                  child: SizedBox(
-                    width: 60,
-                    child: Column(
-                      children: [
-                        AnimatedContainer(
-                          duration: Motion.fast,
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: on ? AppColors.onPrimary : const Color(0x29FBFCF9),
-                            borderRadius: BorderRadius.circular(Radii.md),
-                            border: Border.all(
-                                color: on ? AppColors.onPrimary : Colors.transparent),
-                          ),
-                          child: Icon(c.icon,
-                              size: 24,
-                              color: on ? AppColors.primaryPress : AppColors.onPrimary),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(c.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.onPrimary)),
-                      ],
+          // categories — equal-width, fit the full row (no horizontal scroll)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Insets.s4),
+            child: Row(
+              children: [
+                for (var i = 0; i < categories.length; i++)
+                  Expanded(
+                    child: _CategoryChip(
+                      category: categories[i],
+                      selected: i == selected,
+                      onTap: () => onCategory(i),
                     ),
                   ),
-                );
-              },
+              ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A single category chip: ~40% smaller than the old 48px tile, sized to share
+/// the row equally with its siblings.
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    required this.category,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final MarketCategory category;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: Motion.fast,
+            width: 29,
+            height: 29,
+            decoration: BoxDecoration(
+              color: selected ? AppColors.onPrimary : const Color(0x29FBFCF9),
+              borderRadius: BorderRadius.circular(Radii.sm),
+              border: Border.all(
+                  color: selected ? AppColors.onPrimary : Colors.transparent),
+            ),
+            child: Icon(category.icon,
+                size: 15,
+                color: selected ? AppColors.primaryPress : AppColors.onPrimary),
+          ),
+          const SizedBox(height: 3),
+          Text(category.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.onPrimary)),
         ],
       ),
     );

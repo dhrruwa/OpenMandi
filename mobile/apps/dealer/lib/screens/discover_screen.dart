@@ -77,6 +77,17 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 trailing: [
                   IconButton(
                     onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => ListingsMapScreen(
+                              store.market,
+                              onOpen: (l) => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                      builder: (_) => ListingDetailScreen(l))),
+                            ))),
+                    icon: const Icon(Icons.map_outlined, color: AppColors.onPrimary),
+                    tooltip: 'Map view',
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                         builder: (_) => const NotificationsScreen())),
                     icon: const Icon(Icons.notifications_none,
                         color: AppColors.onPrimary),

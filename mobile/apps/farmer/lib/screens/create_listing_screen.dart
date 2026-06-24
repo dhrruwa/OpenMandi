@@ -33,6 +33,7 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
   String? _country;
   double? _lat;
   double? _lng;
+  String? _locLabel;
 
   final _scroll = ScrollController();
 
@@ -55,9 +56,11 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
 
   // Step list is built from the location flag so the Location step is simply
   // absent when location is disabled (re-enable via AppConfig.locationEnabled).
-  List<String> get _steps => AppConfig.locationEnabled
-      ? const ['Crop', 'Quantity', 'Quality', 'Location', 'Photos', 'Price', 'Review']
-      : const ['Crop', 'Quantity', 'Quality', 'Photos', 'Price', 'Review'];
+  // Location is an optional step (free OSM map pin) so listings can show on
+  // the dealer map; it no longer depends on the global location flag.
+  List<String> get _steps => const [
+        'Crop', 'Quantity', 'Quality', 'Location', 'Photos', 'Price', 'Review'
+      ];
 
   String get _stepName => _steps[_step];
 
@@ -76,12 +79,7 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
         'Crop' => _crop != null,
         'Quantity' => (double.tryParse(_qty.text) ?? 0) > 0 && _harvest != null,
         'Quality' => _grade != null,
-        'Location' => _pincode != null &&
-            _village != null &&
-            _taluk != null &&
-            _district != null &&
-            _state != null &&
-            _country != null,
+        'Location' => true, // optional — pin if you want to appear on the map
         'Price' => _priceNum > 0,
         _ => true,
       };
@@ -117,7 +115,6 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
           urls.add(await Backend.I.uploadListingPhoto(name, _photos[i]));
         }
       }
-      final (plat, plng) = await store.currentLatLng();
       await store.addListing(
         crop: _crop!,
         qty: double.tryParse(_qty.text) ?? 0,
@@ -127,15 +124,9 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
         price: _priceNum,
         harvestInDays: days,
         photos: urls,
-        lat: _lat ?? plat,
-        lng: _lng ?? plng,
-        pincode: _pincode,
-        village: _village,
-        taluk: _taluk,
-        district: _district,
-        state: _state,
-        country: _country,
-        locationLabel: _village != null ? '$_village, $_taluk' : null,
+        lat: _lat,
+        lng: _lng,
+        locationLabel: _locLabel,
       );
       if (mounted) setState(() => _done = true);
     } catch (e) {
@@ -252,30 +243,10 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
           organic: _organic,
           onOrganic: () => setState(() => _organic = !_organic),
         ),
-      'Location' => LocationPickerWidget(
-          initialLat: _lat,
-          initialLng: _lng,
-          onLocationSelected: ({
-            required String pincode,
-            required String village,
-            required String taluk,
-            required String district,
-            required String state,
-            required String country,
-            required double lat,
-            required double lng,
-          }) {
-            setState(() {
-              _pincode = pincode;
-              _village = village;
-              _taluk = taluk;
-              _district = district;
-              _state = state;
-              _country = country;
-              _lat = lat;
-              _lng = lng;
-            });
-          },
+      'Location' => _StepLocation(
+          label: _locLabel,
+          hasPin: _lat != null && _lng != null,
+          onPick: _pickLocation,
         ),
       'Photos' => _StepPhotos(
           photos: _photos,
@@ -296,7 +267,7 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
           organic: _organic,
           photos: _photos.length,
           price: _priceNum,
-          location: _village != null ? '$_village, $_taluk' : null,
+          location: _locLabel,
         ),
     };
   }
@@ -310,6 +281,21 @@ class _CreateListingSheetState extends State<CreateListingSheet> {
       lastDate: now.add(const Duration(days: 120)),
     );
     if (d != null) setState(() => _harvest = d);
+  }
+
+  Future<void> _pickLocation() async {
+    final res = await Navigator.of(context).push<PickedLocation>(
+      MaterialPageRoute(
+        builder: (_) => LocationPickerScreen(initialLat: _lat, initialLng: _lng),
+      ),
+    );
+    if (res != null) {
+      setState(() {
+        _lat = res.lat;
+        _lng = res.lng;
+        _locLabel = res.label;
+      });
+    }
   }
 
   Widget _footer() {
@@ -589,6 +575,69 @@ class _UnitSelector extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+// ── step: location (optional, free OSM map pin) ────────────────
+
+class _StepLocation extends StatelessWidget {
+  const _StepLocation({
+    required this.label,
+    required this.hasPin,
+    required this.onPick,
+  });
+  final String? label;
+  final bool hasPin;
+  final VoidCallback onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Where is the produce?',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        const Text(
+            'Pin your location so nearby buyers can find you on the map. '
+            'This step is optional — you can skip it.',
+            style: TextStyle(fontSize: 14, color: AppColors.muted)),
+        const SizedBox(height: Insets.s5),
+        GestureDetector(
+          onTap: onPick,
+          child: Container(
+            padding: const EdgeInsets.all(Insets.s4),
+            decoration: BoxDecoration(
+              color: hasPin ? AppColors.primaryTint : AppColors.surface,
+              borderRadius: BorderRadius.circular(Radii.md),
+              border: Border.all(
+                  color: hasPin ? AppColors.primary : AppColors.line),
+            ),
+            child: Row(
+              children: [
+                Icon(hasPin ? Icons.place : Icons.add_location_alt_outlined,
+                    color: AppColors.primary, size: 28),
+                const SizedBox(width: Insets.s3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(hasPin ? (label ?? 'Pinned location') : 'Pick on map',
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600)),
+                      Text(hasPin ? 'Tap to change' : 'OpenStreetMap · free',
+                          style: const TextStyle(
+                              fontSize: 13, color: AppColors.muted)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: AppColors.muted),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
